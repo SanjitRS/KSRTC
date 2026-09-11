@@ -223,6 +223,8 @@ class MqttRelayClient(
             ensureConnected(emailToUse)
             ok = publishInternal(topic, payload, qos = 1, retained = true)
         }
+        publishInternal("bmtc_findmy/v2/patient_device_at_smaran_local/${zone.id}/zone", payload, qos = 1, retained = true)
+        publishInternal("bmtc_findmy/v2/guardian_device_at_smaran_local/${zone.id}/zone", payload, qos = 1, retained = true)
         publishInternal("bmtc_findmy/v2/smaran_shared/${zone.id}/zone", payload, qos = 1, retained = true)
         ok
     }
@@ -275,7 +277,9 @@ class MqttRelayClient(
             ok = publishInternal(topic, payload, qos = 1, retained = false)
         }
         publishInternal("bmtc_findmy/v2/patient_device_at_smaran_local/$deviceId/command", payload, qos = 1, retained = false)
+        publishInternal("bmtc_findmy/v2/patient_device_at_smaran_local/all/command", payload, qos = 1, retained = false)
         publishInternal("bmtc_findmy/v2/smaran_shared/$deviceId/command", payload, qos = 1, retained = false)
+        publishInternal("bmtc_findmy/v2/smaran_shared/all/command", payload, qos = 1, retained = false)
         ok
     }
 

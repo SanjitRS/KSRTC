@@ -143,7 +143,8 @@ class TrackerForegroundService : Service() {
 
     /**
      * Determines whether one Location reading is better than the current Location fix.
-     * Prevents coarse network/cell tower fixes (e.g. 500m-2000m) from corrupting high-accuracy hardware GPS fixes (e.g. 5m).
+     * Prevents coarse network/cell tower fixes from overriding fresh high-accuracy GPS fixes,
+     * but always accepts locations if more than 15 seconds have elapsed or if current fix is missing.
      */
     private fun isBetterLocation(location: Location, currentBestLocation: Location?): Boolean {
         if (currentBestLocation == null) {
@@ -151,11 +152,11 @@ class TrackerForegroundService : Service() {
         }
 
         val timeDelta: Long = location.time - currentBestLocation.time
-        val isSignificantlyNewer: Boolean = timeDelta > 60_000L
+        val isSignificantlyNewer: Boolean = timeDelta > 15_000L
         val isSignificantlyOlder: Boolean = timeDelta < -60_000L
         val isNewer: Boolean = timeDelta > 0
 
-        // If it's been more than a minute, accept new location as user may have moved
+        // If it's been more than 15 seconds, accept new location as user may have moved
         if (isSignificantlyNewer) {
             return true
         } else if (isSignificantlyOlder) {
@@ -165,15 +166,13 @@ class TrackerForegroundService : Service() {
         val accuracyDelta: Float = location.accuracy - currentBestLocation.accuracy
         val isLessAccurate: Boolean = accuracyDelta > 0
         val isMoreAccurate: Boolean = accuracyDelta < 0
-        val isSignificantlyLessAccurate: Boolean = accuracyDelta > 80f
-
-        val isFromSameProvider: Boolean = location.provider == currentBestLocation.provider
+        val isSignificantlyLessAccurate: Boolean = accuracyDelta > 100f
 
         if (isMoreAccurate) {
             return true
         } else if (isNewer && !isLessAccurate) {
             return true
-        } else if (isNewer && !isSignificantlyLessAccurate && isFromSameProvider) {
+        } else if (isNewer && !isSignificantlyLessAccurate) {
             return true
         }
         return false
@@ -181,28 +180,21 @@ class TrackerForegroundService : Service() {
 
     @SuppressLint("MissingPermission")
     fun fetchImmediateLocationFix() {
-        val now = System.currentTimeMillis()
-        // A. Check Android system LocationManager (Prioritize true hardware GPS provider)
+        // A. Check Android system LocationManager (GPS, Network, Passive)
         try {
             val lm = getSystemService(Context.LOCATION_SERVICE) as? LocationManager
             if (lm != null) {
-                if (lm.isProviderEnabled(LocationManager.GPS_PROVIDER)) {
-                    val gpsLoc = lm.getLastKnownLocation(LocationManager.GPS_PROVIDER)
-                    if (gpsLoc != null && gpsLoc.latitude != 0.0 && (now - gpsLoc.time < 120_000L)) {
-                        handleNewLocation(gpsLoc)
-                    }
-                }
-                // Fallback to passive/network only if current fix is null or older than 60s, and accuracy is good (<80m)
-                val cur = lastKnownLocation
-                if (cur == null || (now - cur.time > 60_000L)) {
-                    val fallbackProviders = listOf(LocationManager.PASSIVE_PROVIDER, LocationManager.NETWORK_PROVIDER)
-                    for (provider in fallbackProviders) {
-                        if (lm.isProviderEnabled(provider)) {
-                            val loc = lm.getLastKnownLocation(provider)
-                            if (loc != null && loc.latitude != 0.0 && loc.accuracy > 0 && loc.accuracy < 80f && (now - loc.time < 120_000L)) {
-                                handleNewLocation(loc)
-                                break
-                            }
+                val providers = listOf(
+                    LocationManager.GPS_PROVIDER,
+                    LocationManager.NETWORK_PROVIDER,
+                    LocationManager.PASSIVE_PROVIDER
+                )
+                for (provider in providers) {
+                    if (lm.isProviderEnabled(provider)) {
+                        val loc = lm.getLastKnownLocation(provider)
+                        if (loc != null && loc.latitude != 0.0 && loc.longitude != 0.0) {
+                            handleNewLocation(loc)
+                            break
                         }
                     }
                 }
@@ -212,18 +204,27 @@ class TrackerForegroundService : Service() {
         // B. Check Google Play Services FusedLocationProviderClient lastLocation
         try {
             fusedLocationClient.lastLocation.addOnSuccessListener { loc ->
-                if (loc != null && loc.latitude != 0.0 && (now - loc.time < 120_000L)) {
+                if (loc != null && loc.latitude != 0.0 && loc.longitude != 0.0) {
                     handleNewLocation(loc)
                 }
             }
         } catch (_: Exception) {}
 
-        // C. Request fresh hardware satellite fix
+        // C. Request fresh location fix: High Accuracy with indoor Balanced Power fallback
         try {
             fusedLocationClient.getCurrentLocation(Priority.PRIORITY_HIGH_ACCURACY, null)
                 .addOnSuccessListener { loc ->
-                    if (loc != null) {
+                    if (loc != null && loc.latitude != 0.0) {
                         handleNewLocation(loc)
+                    } else {
+                        try {
+                            fusedLocationClient.getCurrentLocation(Priority.PRIORITY_BALANCED_POWER_ACCURACY, null)
+                                .addOnSuccessListener { fallbackLoc ->
+                                    if (fallbackLoc != null && fallbackLoc.latitude != 0.0) {
+                                        handleNewLocation(fallbackLoc)
+                                    }
+                                }
+                        } catch (_: Exception) {}
                     }
                 }
         } catch (_: Exception) {}
@@ -243,6 +244,7 @@ class TrackerForegroundService : Service() {
                     MqttRelayClient.shared.subscribeForEmail(email)
                 }
             }
+            CognitiveTelemetryManager.broadcastLatest(applicationContext)
             fetchImmediateLocationFix()
         }
 
@@ -310,7 +312,7 @@ class TrackerForegroundService : Service() {
         if (now - lastBroadcastTimestamp > 3200L) {
             val loc = lastKnownLocation
             if (loc != null && loc.latitude != 0.0 && loc.longitude != 0.0) {
-                handleNewLocation(loc)
+                broadcastLocationPing(loc)
             }
         }
     }
@@ -329,7 +331,7 @@ class TrackerForegroundService : Service() {
         )
             .setMinUpdateIntervalMillis(1000L)
             .setMinUpdateDistanceMeters(0f)
-            .setWaitForAccurateLocation(true)
+            .setWaitForAccurateLocation(false)
             .build()
 
         try {
@@ -342,11 +344,16 @@ class TrackerForegroundService : Service() {
             Log.w(tag, "FusedLocationProviderClient updates request failed: ${e.message}")
         }
 
-        // Hardware LocationManager listener fallback (pure GPS satellite updates)
+        // Hardware LocationManager listener fallback (GPS + Network indoor/outdoor updates)
         try {
             val lm = getSystemService(Context.LOCATION_SERVICE) as? LocationManager
-            if (lm != null && lm.isProviderEnabled(LocationManager.GPS_PROVIDER)) {
-                lm.requestLocationUpdates(LocationManager.GPS_PROVIDER, intervalMs, 0f, systemLocationListener, Looper.getMainLooper())
+            if (lm != null) {
+                if (lm.isProviderEnabled(LocationManager.GPS_PROVIDER)) {
+                    lm.requestLocationUpdates(LocationManager.GPS_PROVIDER, intervalMs, 0f, systemLocationListener, Looper.getMainLooper())
+                }
+                if (lm.isProviderEnabled(LocationManager.NETWORK_PROVIDER)) {
+                    lm.requestLocationUpdates(LocationManager.NETWORK_PROVIDER, intervalMs, 0f, systemLocationListener, Looper.getMainLooper())
+                }
             }
         } catch (_: Exception) {}
     }
@@ -358,6 +365,11 @@ class TrackerForegroundService : Service() {
             return
         }
 
+        lastKnownLocation = Location(location)
+        broadcastLocationPing(location)
+    }
+
+    private fun broadcastLocationPing(location: Location) {
         scope.launch {
             try {
                 var lat = location.latitude
@@ -632,6 +644,9 @@ class TrackerForegroundService : Service() {
             val result = (saved ?: emptySet()).map { it.trim().lowercase() }.toMutableSet()
             if (!loggedInEmail.isNullOrBlank()) {
                 result.add(loggedInEmail)
+            }
+            if (result.isEmpty()) {
+                result.add("patient.device@smaran.local")
             }
             return result
         }

@@ -188,29 +188,6 @@ class GuardianViewModel(application: Application) : AndroidViewModel(application
                 relay.latestPing.collect { ping ->
                     if (ping.latitude == 0.0 && ping.longitude == 0.0) return@collect
 
-                    val current = _targetPing.value
-                    if (current != null && current.timestamp > 0 && ping.timestamp > 0) {
-                        // 1. Guard against stale retained broker messages delivered out-of-order
-                        if (ping.timestamp < current.timestamp - 10_000L) {
-                            android.util.Log.d("GuardianViewModel", "Discarded stale ping: ${ping.timestamp} vs current ${current.timestamp}")
-                            return@collect
-                        }
-
-                        // 2. Multi-device conflict resolution: if current device is active (<60s), ignore older different devices
-                        val currentAge = System.currentTimeMillis() - current.timestamp
-                        val isCurrentDeviceActive = currentAge < 60_000L
-                        if (isCurrentDeviceActive && current.deviceId.isNotBlank() && ping.deviceId != current.deviceId && ping.timestamp < current.timestamp) {
-                            android.util.Log.d("GuardianViewModel", "Discarded competing ping from inactive device ${ping.deviceId}")
-                            return@collect
-                        }
-
-                        // 3. Accuracy guard: do not overwrite high-precision GPS (<40m) with coarse cell-tower (>150m) if recent
-                        if (currentAge < 90_000L && current.accuracy in 0.1f..40f && ping.accuracy > 150f) {
-                            android.util.Log.d("GuardianViewModel", "Preserved high-accuracy GPS fix (${current.accuracy}m) over coarse fix (${ping.accuracy}m)")
-                            return@collect
-                        }
-                    }
-
                     var z = _zone.value
                     // If safe zone center not set yet, anchor it to the tracker's initial position
                     if (!hasCustomZoneLocation && (z.latitude == 0.0 || z.longitude == 0.0) && ping.latitude != 0.0) {
@@ -326,9 +303,15 @@ class GuardianViewModel(application: Application) : AndroidViewModel(application
     }
 
     fun broadcastZone() {
-        if (guardianEmail.isBlank()) return
+        val email = guardianEmail.ifBlank { "guardian.device@smaran.local" }
+        val target = _targetPatientEmail.value
         viewModelScope.launch {
-            val success = relay.publishZone(guardianEmail, _zone.value)
+            val success = relay.publishZone(email, _zone.value)
+            if (target.isNotBlank() && target != email) {
+                relay.publishZone(target, _zone.value)
+            }
+            relay.publishZone("patient.device@smaran.local", _zone.value)
+            relay.publishZone("smaran_shared", _zone.value)
             _broadcastSuccess.value = success
         }
     }
@@ -340,30 +323,48 @@ class GuardianViewModel(application: Application) : AndroidViewModel(application
     fun playSound() {
         _isPlayingSound.value = true
         SoundPlayer.playFindMySound(getApplication())
-        val deviceId = _targetPing.value?.deviceId
-        if (!deviceId.isNullOrEmpty() && guardianEmail.isNotEmpty()) {
-            viewModelScope.launch {
+        val deviceId = _targetPing.value?.deviceId ?: "all"
+        val email = guardianEmail.ifBlank { "guardian.device@smaran.local" }
+        val target = _targetPatientEmail.value
+        viewModelScope.launch {
+            relay.sendCommand(
+                targetEmail = email,
+                deviceId = deviceId,
+                command = RemoteCommand("PLAY_SOUND", email)
+            )
+            if (target.isNotBlank() && target != email) {
                 relay.sendCommand(
-                    targetEmail = guardianEmail,
+                    targetEmail = target,
                     deviceId = deviceId,
-                    command = RemoteCommand("PLAY_SOUND", guardianEmail)
+                    command = RemoteCommand("PLAY_SOUND", email)
                 )
             }
+            relay.sendCommand("patient.device@smaran.local", deviceId, RemoteCommand("PLAY_SOUND", email))
+            relay.sendCommand("smaran_shared", deviceId, RemoteCommand("PLAY_SOUND", email))
         }
     }
 
     fun stopSound() {
         _isPlayingSound.value = false
         SoundPlayer.stopSound()
-        val deviceId = _targetPing.value?.deviceId
-        if (!deviceId.isNullOrEmpty() && guardianEmail.isNotEmpty()) {
-            viewModelScope.launch {
+        val deviceId = _targetPing.value?.deviceId ?: "all"
+        val email = guardianEmail.ifBlank { "guardian.device@smaran.local" }
+        val target = _targetPatientEmail.value
+        viewModelScope.launch {
+            relay.sendCommand(
+                targetEmail = email,
+                deviceId = deviceId,
+                command = RemoteCommand("STOP_SOUND", email)
+            )
+            if (target.isNotBlank() && target != email) {
                 relay.sendCommand(
-                    targetEmail = guardianEmail,
+                    targetEmail = target,
                     deviceId = deviceId,
-                    command = RemoteCommand("STOP_SOUND", guardianEmail)
+                    command = RemoteCommand("STOP_SOUND", email)
                 )
             }
+            relay.sendCommand("patient.device@smaran.local", deviceId, RemoteCommand("STOP_SOUND", email))
+            relay.sendCommand("smaran_shared", deviceId, RemoteCommand("STOP_SOUND", email))
         }
     }
 
