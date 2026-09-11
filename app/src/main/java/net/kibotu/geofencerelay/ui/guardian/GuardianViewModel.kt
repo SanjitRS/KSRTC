@@ -186,6 +186,31 @@ class GuardianViewModel(application: Application) : AndroidViewModel(application
             // Listen for live location pings from remote target device
             launch {
                 relay.latestPing.collect { ping ->
+                    if (ping.latitude == 0.0 && ping.longitude == 0.0) return@collect
+
+                    val current = _targetPing.value
+                    if (current != null && current.timestamp > 0 && ping.timestamp > 0) {
+                        // 1. Guard against stale retained broker messages delivered out-of-order
+                        if (ping.timestamp < current.timestamp - 10_000L) {
+                            android.util.Log.d("GuardianViewModel", "Discarded stale ping: ${ping.timestamp} vs current ${current.timestamp}")
+                            return@collect
+                        }
+
+                        // 2. Multi-device conflict resolution: if current device is active (<60s), ignore older different devices
+                        val currentAge = System.currentTimeMillis() - current.timestamp
+                        val isCurrentDeviceActive = currentAge < 60_000L
+                        if (isCurrentDeviceActive && current.deviceId.isNotBlank() && ping.deviceId != current.deviceId && ping.timestamp < current.timestamp) {
+                            android.util.Log.d("GuardianViewModel", "Discarded competing ping from inactive device ${ping.deviceId}")
+                            return@collect
+                        }
+
+                        // 3. Accuracy guard: do not overwrite high-precision GPS (<40m) with coarse cell-tower (>150m) if recent
+                        if (currentAge < 90_000L && current.accuracy in 0.1f..40f && ping.accuracy > 150f) {
+                            android.util.Log.d("GuardianViewModel", "Preserved high-accuracy GPS fix (${current.accuracy}m) over coarse fix (${ping.accuracy}m)")
+                            return@collect
+                        }
+                    }
+
                     var z = _zone.value
                     // If safe zone center not set yet, anchor it to the tracker's initial position
                     if (!hasCustomZoneLocation && (z.latitude == 0.0 || z.longitude == 0.0) && ping.latitude != 0.0) {

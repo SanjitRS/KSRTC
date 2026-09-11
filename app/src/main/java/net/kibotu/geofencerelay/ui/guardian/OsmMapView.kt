@@ -1,4 +1,4 @@
-﻿package net.kibotu.geofencerelay.ui.guardian
+package net.kibotu.geofencerelay.ui.guardian
 
 import android.content.Context
 import android.graphics.Color
@@ -32,7 +32,7 @@ fun OsmMapView(
     val context = LocalContext.current
 
     // Initialize MapView and persistent overlays ONCE to prevent memory leaks and crashes
-    val (mapView, circleOverlay, centerMarker, targetMarker) = remember {
+    val (mapView, circleOverlay, accuracyOverlay, centerMarker, targetMarker) = remember {
         val sharedPrefs = context.getSharedPreferences("${context.packageName}_osm", Context.MODE_PRIVATE)
         Configuration.getInstance().load(context, sharedPrefs)
         Configuration.getInstance().userAgentValue = context.packageName
@@ -60,6 +60,13 @@ fun OsmMapView(
             fillPaint.style = Paint.Style.FILL
         }
 
+        val accCircle = Polygon(map).apply {
+            outlinePaint.strokeWidth = 2f
+            outlinePaint.color = Color.argb(130, 33, 150, 243)
+            fillPaint.style = Paint.Style.FILL
+            fillPaint.color = Color.argb(35, 33, 150, 243)
+        }
+
         val cMarker = Marker(map).apply {
             setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_BOTTOM)
             title = "Safe Zone Center"
@@ -73,6 +80,7 @@ fun OsmMapView(
 
         // Add overlays in fixed order
         map.overlays.add(circle)
+        map.overlays.add(accCircle)
         map.overlays.add(cMarker)
         map.overlays.add(tMarker)
 
@@ -91,11 +99,12 @@ fun OsmMapView(
             }
         })
 
-        arrayOf(map, circle, cMarker, tMarker)
+        arrayOf(map, circle, accCircle, cMarker, tMarker)
     }
 
     val map = mapView as MapView
     val circle = circleOverlay as Polygon
+    val accCircle = accuracyOverlay as Polygon
     val cMarker = centerMarker as Marker
     val tMarker = targetMarker as Marker
 
@@ -106,7 +115,8 @@ fun OsmMapView(
         }
     }
 
-    var hasCenteredInitialFix by remember { mutableStateOf(false) }
+    var lastCenteredLat by remember { mutableStateOf(0.0) }
+    var lastCenteredLon by remember { mutableStateOf(0.0) }
     var lastHandledRecenterTrigger by remember { mutableIntStateOf(0) }
     var lastZoneLat by remember { mutableStateOf(0.0) }
     var lastZoneLon by remember { mutableStateOf(0.0) }
@@ -115,13 +125,20 @@ fun OsmMapView(
     var lastTargetLat by remember { mutableStateOf(0.0) }
     var lastTargetLon by remember { mutableStateOf(0.0) }
 
-    // Smooth camera control: Center only on initial fix OR when user clicks recenter button
+    // Smooth camera control: Center on initial fix, user recenter button, or when target moves > 40m
     LaunchedEffect(targetPing?.latitude, targetPing?.longitude, recenterTrigger) {
         val lat = targetPing?.latitude ?: zone.latitude
         val lon = targetPing?.longitude ?: zone.longitude
         if (lat != 0.0 && lon != 0.0) {
-            if (!hasCenteredInitialFix || recenterTrigger != lastHandledRecenterTrigger) {
-                hasCenteredInitialFix = true
+            val dist = if (lastCenteredLat != 0.0 && lastCenteredLon != 0.0) {
+                net.kibotu.geofencerelay.util.LocationUtils.distanceMeters(lat, lon, lastCenteredLat, lastCenteredLon)
+            } else {
+                Double.MAX_VALUE
+            }
+
+            if (dist == Double.MAX_VALUE || recenterTrigger != lastHandledRecenterTrigger || dist > 40.0) {
+                lastCenteredLat = lat
+                lastCenteredLon = lon
                 lastHandledRecenterTrigger = recenterTrigger
                 map.controller.animateTo(GeoPoint(lat, lon))
             }
@@ -164,7 +181,7 @@ fun OsmMapView(
                 overlaysDirty = true
             }
 
-            // 2. Update Target Device Marker ONLY when coordinates actually change
+            // 2. Update Target Device Marker & Accuracy Circle ONLY when coordinates actually change
             val curLat = targetPing?.latitude ?: 0.0
             val curLon = targetPing?.longitude ?: 0.0
             val targetChanged = curLat != lastTargetLat || curLon != lastTargetLon
@@ -173,12 +190,19 @@ fun OsmMapView(
                 lastTargetLon = curLon
 
                 if (targetPing != null && targetPing.latitude != 0.0) {
-                    tMarker.position = GeoPoint(targetPing.latitude, targetPing.longitude)
+                    val geoPoint = GeoPoint(targetPing.latitude, targetPing.longitude)
+                    tMarker.position = geoPoint
                     tMarker.title = if (isBreached) "🚨 ${targetPing.deviceName} (BREACH)" else "📍 ${targetPing.deviceName}"
-                    tMarker.snippet = targetPing.address
+                    val accInfo = if (targetPing.accuracy > 0f) " (±${targetPing.accuracy.toInt()}m accuracy)" else ""
+                    tMarker.snippet = "${targetPing.address}$accInfo"
                     tMarker.isEnabled = true
+
+                    val radius = if (targetPing.accuracy > 0f) targetPing.accuracy.toDouble().coerceAtLeast(4.0) else 10.0
+                    accCircle.points = Polygon.pointsAsCircle(geoPoint, radius)
+                    accCircle.isEnabled = true
                 } else {
                     tMarker.isEnabled = false
+                    accCircle.isEnabled = false
                 }
                 overlaysDirty = true
             }

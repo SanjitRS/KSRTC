@@ -63,6 +63,8 @@ fun TrackerMainScreen(
         mutableStateOf(TrackerForegroundService.isRunning(context))
     }
 
+    val livePing by TrackerForegroundService.latestDevicePing.collectAsState()
+
     var authorizedEmails by remember {
         val currentSet = TrackerForegroundService.getAuthorizedEmails(context)
         mutableStateOf(if (currentSet.isNotEmpty()) currentSet.toList() else listOf(userEmail))
@@ -468,10 +470,53 @@ fun TrackerMainScreen(
                         Column {
                             Text(deviceName, fontWeight = FontWeight.Bold, fontSize = 15.sp, color = IrctcTextPrimary)
                             Spacer(modifier = Modifier.height(2.dp))
-                            Text("High-Accuracy Hardware GPS • Free Zero Cloud Cost", fontSize = 11.sp, color = IrctcTextSecondary)
+                            Text("High-Accuracy Hardware GPS • Direct Satellite Fix", fontSize = 11.sp, color = IrctcTextSecondary)
                         }
+                    }
 
+                    Spacer(modifier = Modifier.height(10.dp))
+                    HorizontalDivider(color = IrctcCardBorder)
+                    Spacer(modifier = Modifier.height(10.dp))
 
+                    val ping = livePing
+                    if (ping != null && ping.latitude != 0.0) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Box(
+                                modifier = Modifier
+                                    .size(8.dp)
+                                    .clip(CircleShape)
+                                    .background(IrctcGreen)
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(
+                                "GPS Fix: ${String.format(java.util.Locale.US, "%.5f", ping.latitude)}, ${String.format(java.util.Locale.US, "%.5f", ping.longitude)}",
+                                fontWeight = FontWeight.SemiBold,
+                                fontSize = 13.sp,
+                                color = IrctcTextPrimary
+                            )
+                        }
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(
+                                "Accuracy: ±${ping.accuracy.toInt()}m",
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = if (ping.accuracy <= 25f) IrctcGreen else IrctcOrangeDark
+                            )
+                            if (ping.address.isNotBlank() && ping.address != "Locating nearby area...") {
+                                Text(" • ${ping.address}", fontSize = 11.sp, color = IrctcTextSecondary, maxLines = 1)
+                            }
+                        }
+                    } else {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            CircularProgressIndicator(modifier = Modifier.size(12.dp), strokeWidth = 1.5.dp, color = IrctcSaffron)
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                "Acquiring hardware GPS satellite fix...",
+                                fontSize = 12.sp,
+                                color = IrctcTextSecondary
+                            )
+                        }
                     }
                 }
             }
