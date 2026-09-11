@@ -6,12 +6,12 @@ Smaran is a dual-application platform designed to empower Alzheimer's and dement
 
 ## 📱 Pre-Built Application APKs
 
-Direct pre-compiled installable APKs are available in the repository root and `release/` directory:
+Direct pre-compiled installable APKs are available in the repository root and `release/` directory, as well as fast cloud mirrors:
 
-| App | Description | Direct Download |
-| :--- | :--- | :--- |
-| **Smaran Patient App (Tracker)** | Patient companion with 4 brain exercise games, clinical CPS calculation, and background GPS beacon | [Download Patient APK](release/Smaran-Patient-App.apk) |
-| **Smaran Caregiver App (Guardian)** | Real-time OpenStreetMap radar, safe zone geofencing, live clinical CPS dashboard, and game session logs | [Download Caregiver APK](release/Smaran-Guardian-CaregiverApp.apk) |
+| App | Description | Cloud Direct Link | Repository Link |
+| :--- | :--- | :--- | :--- |
+| **Smaran Patient App (Tracker)** | Patient companion with 4 brain exercise games, clinical CPS calculation, and background GPS beacon | [Download Patient APK (Catbox)](https://files.catbox.moe/ruyeq7.apk) | [Smaran-Patient-App.apk](release/Smaran-Patient-App.apk) |
+| **Smaran Caregiver App (Guardian)** | Real-time OpenStreetMap radar, safe zone geofencing, live clinical CPS dashboard, and game session logs | [Download Caregiver APK (Catbox)](https://files.catbox.moe/px7j8t.apk) | [Smaran-Caregiver-App.apk](release/Smaran-Caregiver-App.apk) |
 
 ---
 

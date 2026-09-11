@@ -21,6 +21,8 @@ import net.kibotu.geofencerelay.util.BatteryUtils
 import net.kibotu.geofencerelay.util.LocationUtils
 import net.kibotu.geofencerelay.util.NotificationHelper
 import net.kibotu.geofencerelay.util.SoundPlayer
+import kotlinx.serialization.encodeToString
+import kotlinx.serialization.json.Json
 import java.util.UUID
 
 class GuardianViewModel(application: Application) : AndroidViewModel(application) {
@@ -31,6 +33,16 @@ class GuardianViewModel(application: Application) : AndroidViewModel(application
 
     private val app = application
     private val prefs = app.getSharedPreferences("guardian_target_prefs", Context.MODE_PRIVATE)
+    private val json = Json { ignoreUnknownKeys = true }
+
+    private fun loadCachedTelemetry(): PatientCognitiveTelemetry? {
+        val raw = prefs.getString("cached_patient_telemetry", null) ?: return null
+        return try {
+            json.decodeFromString<PatientCognitiveTelemetry>(raw)
+        } catch (_: Exception) {
+            null
+        }
+    }
 
     private val _targetPatientEmail = MutableStateFlow(
         prefs.getString("target_patient_email", "patient.device@smaran.local") ?: "patient.device@smaran.local"
@@ -77,7 +89,7 @@ class GuardianViewModel(application: Application) : AndroidViewModel(application
     private val _isPlayingSound = MutableStateFlow(false)
     val isPlayingSound = _isPlayingSound.asStateFlow()
 
-    private val _patientTelemetry = MutableStateFlow<PatientCognitiveTelemetry?>(null)
+    private val _patientTelemetry = MutableStateFlow<PatientCognitiveTelemetry?>(loadCachedTelemetry())
     val patientTelemetry = _patientTelemetry.asStateFlow()
 
     private var breachAlertJob: Job? = null
@@ -212,6 +224,11 @@ class GuardianViewModel(application: Application) : AndroidViewModel(application
                 relay.latestTelemetry.collect { telemetry ->
                     if (telemetry != null) {
                         _patientTelemetry.value = telemetry
+                        try {
+                            prefs.edit().putString("cached_patient_telemetry", json.encodeToString(telemetry)).commit()
+                        } catch (e: Exception) {
+                            android.util.Log.e("GuardianViewModel", "Failed to cache telemetry: ${e.message}")
+                        }
                     }
                 }
             }

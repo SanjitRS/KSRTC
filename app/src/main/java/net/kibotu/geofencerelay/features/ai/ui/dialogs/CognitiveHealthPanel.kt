@@ -28,6 +28,7 @@ import net.kibotu.geofencerelay.features.ai.model.CpsAssessmentResult
 import net.kibotu.geofencerelay.features.ai.report.ClinicalReportGenerator
 import net.kibotu.geofencerelay.features.ai.risk.CognitiveAnomalyDetector
 import net.kibotu.geofencerelay.features.ai.ui.components.IosBackPillButton
+import net.kibotu.geofencerelay.relay.CognitiveTelemetryManager
 import net.kibotu.geofencerelay.ui.theme.*
 
 /**
@@ -364,7 +365,19 @@ fun CognitiveHealthPanel(
                     }
                 }
 
-                Spacer(modifier = Modifier.height(14.dp))
+                // Instant Sync CPS Telemetry to Caregiver Pill Button
+                NerPillButton(
+                    text = "Sync CPS to Caregiver Now",
+                    onClick = {
+                        CognitiveTelemetryManager.broadcastLatest(context)
+                        android.widget.Toast.makeText(context, "CPS Telemetry synced to Caregiver over MQTT!", android.widget.Toast.LENGTH_SHORT).show()
+                    },
+                    containerColor = NerColors.Secondary,
+                    icon = Icons.Default.Sync,
+                    modifier = Modifier.fillMaxWidth()
+                )
+
+                Spacer(modifier = Modifier.height(10.dp))
 
                 // Share Clinical Diagnostic Report Pill Button
                 NerPillButton(

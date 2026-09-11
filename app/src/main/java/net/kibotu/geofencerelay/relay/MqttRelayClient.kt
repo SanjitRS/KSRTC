@@ -11,6 +11,8 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
@@ -58,8 +60,10 @@ class MqttRelayClient(
     private val _incomingCommand = MutableSharedFlow<RemoteCommand>(replay = 1, extraBufferCapacity = 16)
     override val incomingCommand: SharedFlow<RemoteCommand> = _incomingCommand.asSharedFlow()
 
-    private val _latestTelemetry = MutableStateFlow<PatientCognitiveTelemetry?>(null)
-    val latestTelemetry: StateFlow<PatientCognitiveTelemetry?> = _latestTelemetry.asStateFlow()
+    private val publishMutex = Mutex()
+
+    private val _latestTelemetry = MutableSharedFlow<PatientCognitiveTelemetry>(replay = 1, extraBufferCapacity = 16)
+    val latestTelemetry: SharedFlow<PatientCognitiveTelemetry> = _latestTelemetry.asSharedFlow()
 
     fun sanitizeEmail(email: String): String {
         return email.trim().lowercase()
@@ -186,7 +190,7 @@ class MqttRelayClient(
                     }
                     topic.endsWith("/telemetry") -> {
                         val tel = json.decodeFromString<PatientCognitiveTelemetry>(payload)
-                        _latestTelemetry.value = tel
+                        _latestTelemetry.emit(tel)
                         Log.d(tag, "Received patient cognitive telemetry: CPS=${tel.compositeCps}")
                     }
                 }
@@ -287,13 +291,13 @@ class MqttRelayClient(
         ok
     }
 
-    private fun publishInternal(topic: String, payload: String, qos: Int, retained: Boolean): Boolean {
+    private suspend fun publishInternal(topic: String, payload: String, qos: Int, retained: Boolean): Boolean = publishMutex.withLock {
         val c = client
         if (c == null || !c.isConnected) {
             Log.w(tag, "Cannot publish to $topic: disconnected")
-            return false
+            return@withLock false
         }
-        return try {
+        return@withLock try {
             val message = MqttMessage(payload.toByteArray()).apply {
                 this.qos = qos
                 this.isRetained = retained

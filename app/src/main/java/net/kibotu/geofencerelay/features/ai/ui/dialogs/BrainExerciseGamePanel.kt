@@ -457,10 +457,50 @@ private fun FullScreenMemoryMatchingGameView(
 
                 val allMatched = updatedCards.all { it.isMatched }
                 if (allMatched) {
+                    val durationMs = System.currentTimeMillis() - startTime
+                    val pairsMatched = if (currentRound == 1) 4 else 10
+                    val accuracy = if (totalAttempts > 0) (pairsMatched.toDouble() / totalAttempts).coerceIn(0.0, 1.0) else 1.0
+                    val telemetry = GameSessionTelemetry(
+                        gameType = "memory_matching",
+                        accuracy = accuracy,
+                        responseTimeMs = durationMs,
+                        attempts = totalAttempts,
+                        errors = totalErrors,
+                        completionRate = 1.0
+                    )
+                    val result = CpsEngine.analyzeSession(telemetry, selectedLanguageCode)
+                    completionMessage = result.encouragementPrompt
+                    CognitiveAnomalyDetector.recordSessionToHistory(context, telemetry.accuracy, telemetry.responseTimeMs, telemetry.errors)
+                    scope.launch {
+                        SmaranAiClient.predictDifficulty(
+                            context = context,
+                            gameType = telemetry.gameType,
+                            currentDifficulty = result.hiddenDifficulty,
+                            accuracy = telemetry.accuracy,
+                            completionRate = telemetry.completionRate,
+                            responseTimeMs = telemetry.responseTimeMs,
+                            errors = telemetry.errors,
+                            hintsUsed = telemetry.hintsUsed
+                        )
+                    }
+                    val session = GameSessionRecord(
+                        gameId = "MEMORY_MATCH",
+                        gameName = "Jumbo Memory Match",
+                        score = (accuracy * 100).toInt(),
+                        roundsCompleted = currentRound,
+                        accuracyPercent = accuracy * 100.0,
+                        averageLatencyMs = durationMs,
+                        errors = totalErrors,
+                        timestamp = System.currentTimeMillis()
+                    )
+                    CognitiveTelemetryManager.recordGameAndBroadcast(context, userEmail, result, session)
+                    Toast.makeText(context, "✅ CPS Synced to Caregiver! (${result.cpsScore.toInt()} pts)", Toast.LENGTH_SHORT).show()
+                    onAssessmentUpdated(result)
+
                     if (currentRound < maxRounds) {
                         delay(500)
                         val nextRnd = currentRound + 1
-                        val nextPairs = if (nextRnd == 1) 4 else 6
+                        val nextPairs = 6
                         val nextPicked = symbolsPool.shuffled().take(nextPairs)
                         cards = (nextPicked + nextPicked).shuffled().mapIndexed { idx, s ->
                             CardItem(id = idx, symbolItem = s)
@@ -469,44 +509,6 @@ private fun FullScreenMemoryMatchingGameView(
                         flippedIndices = emptyList()
                         isBusyChecking = false
                     } else {
-                        val durationMs = System.currentTimeMillis() - startTime
-                        val accuracy = if (totalAttempts > 0) ((4 + 6).toDouble() / totalAttempts).coerceIn(0.0, 1.0) else 1.0
-                        val telemetry = GameSessionTelemetry(
-                            gameType = "memory_matching",
-                            accuracy = accuracy,
-                            responseTimeMs = durationMs,
-                            attempts = totalAttempts,
-                            errors = totalErrors,
-                            completionRate = 1.0
-                        )
-                        val result = CpsEngine.analyzeSession(telemetry, selectedLanguageCode)
-                        completionMessage = result.encouragementPrompt
-                        CognitiveAnomalyDetector.recordSessionToHistory(context, telemetry.accuracy, telemetry.responseTimeMs, telemetry.errors)
-                        scope.launch {
-                            SmaranAiClient.predictDifficulty(
-                                context = context,
-                                gameType = telemetry.gameType,
-                                currentDifficulty = result.hiddenDifficulty,
-                                accuracy = telemetry.accuracy,
-                                completionRate = telemetry.completionRate,
-                                responseTimeMs = telemetry.responseTimeMs,
-                                errors = telemetry.errors,
-                                hintsUsed = telemetry.hintsUsed
-                            )
-                        }
-                        val session = GameSessionRecord(
-                            gameId = "MEMORY_MATCH",
-                            gameName = "Jumbo Memory Match",
-                            score = (accuracy * 100).toInt(),
-                            roundsCompleted = 2,
-                            accuracyPercent = accuracy * 100.0,
-                            averageLatencyMs = durationMs,
-                            errors = totalErrors,
-                            timestamp = System.currentTimeMillis()
-                        )
-                        CognitiveTelemetryManager.recordGameAndBroadcast(context, userEmail, result, session)
-                        Toast.makeText(context, "✅ CPS Synced to Caregiver! (${result.cpsScore.toInt()} pts)", Toast.LENGTH_SHORT).show()
-                        onAssessmentUpdated(result)
                         isGameFinished = true
                         flippedIndices = emptyList()
                         isBusyChecking = false
@@ -941,7 +943,7 @@ private fun ColorStroopChallengeGameView(
     var currentWordIndex by remember { mutableStateOf(0) }
     var currentInkColorIndex by remember { mutableStateOf(1) } // Conflict!
     var scoreCount by remember { mutableStateOf(0) }
-    val totalRounds = 10
+    val totalRounds = 5
     var currentRound by remember { mutableStateOf(1) }
     var isFinished by remember { mutableStateOf(false) }
     var completionMessage by remember { mutableStateOf("") }
@@ -977,7 +979,7 @@ private fun ColorStroopChallengeGameView(
             val session = GameSessionRecord(
                 gameId = "STROOP",
                 gameName = "Color-Word Stroop Challenge",
-                score = scoreCount * 10,
+                score = (accuracy * 100).toInt(),
                 roundsCompleted = totalRounds,
                 accuracyPercent = accuracy * 100.0,
                 averageLatencyMs = elapsed,
