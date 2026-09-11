@@ -75,8 +75,8 @@ class MqttRelayClient(
     private val isConnecting = java.util.concurrent.atomic.AtomicBoolean(false)
 
     override suspend fun connect(userEmail: String): Boolean = withContext(Dispatchers.IO) {
-        if (userEmail.isBlank()) return@withContext false
-        currentUserEmail = userEmail.trim().lowercase()
+        val effective = userEmail.trim().lowercase().ifBlank { "smaran_shared" }
+        currentUserEmail = effective
 
         // If already connected, ensure subscriptions are active
         val existing = client
@@ -212,45 +212,50 @@ class MqttRelayClient(
     }
 
     override suspend fun publishZone(targetEmail: String, zone: GeofenceZone): Boolean = withContext(Dispatchers.IO) {
-        val topic = "bmtc_findmy/v2/${sanitizeEmail(targetEmail)}/${zone.id}/zone"
+        val emailToUse = targetEmail.ifBlank { "smaran_shared" }
+        val topic = "bmtc_findmy/v2/${sanitizeEmail(emailToUse)}/${zone.id}/zone"
         val payload = json.encodeToString(zone)
         if (client?.isConnected != true) {
-            ensureConnected(targetEmail)
+            ensureConnected(emailToUse)
         }
         var ok = publishInternal(topic, payload, qos = 1, retained = true)
         if (!ok) {
-            ensureConnected(targetEmail)
+            ensureConnected(emailToUse)
             ok = publishInternal(topic, payload, qos = 1, retained = true)
         }
+        publishInternal("bmtc_findmy/v2/smaran_shared/${zone.id}/zone", payload, qos = 1, retained = true)
         ok
     }
 
     override suspend fun publishPing(targetEmail: String, ping: LocationPing): Boolean = withContext(Dispatchers.IO) {
-        val topic = "bmtc_findmy/v2/${sanitizeEmail(targetEmail)}/${ping.deviceId}/location"
+        val emailToUse = targetEmail.ifBlank { "smaran_shared" }
+        val topic = "bmtc_findmy/v2/${sanitizeEmail(emailToUse)}/${ping.deviceId}/location"
         val payload = json.encodeToString(ping)
         if (client?.isConnected != true) {
-            ensureConnected(targetEmail)
+            ensureConnected(emailToUse)
         }
         var ok = publishInternal(topic, payload, qos = 1, retained = true)
         if (!ok) {
-            ensureConnected(targetEmail)
+            ensureConnected(emailToUse)
             ok = publishInternal(topic, payload, qos = 1, retained = true)
         }
         // Mirror to universal channels so any paired Caregiver receives live GPS
         publishInternal("bmtc_findmy/v2/guardian_device_at_smaran_local/${ping.deviceId}/location", payload, qos = 1, retained = true)
+        publishInternal("bmtc_findmy/v2/patient_device_at_smaran_local/${ping.deviceId}/location", payload, qos = 1, retained = true)
         publishInternal("bmtc_findmy/v2/smaran_shared/${ping.deviceId}/location", payload, qos = 1, retained = true)
         ok
     }
 
     override suspend fun publishAlert(targetEmail: String, alert: BreachAlert): Boolean = withContext(Dispatchers.IO) {
-        val topic = "bmtc_findmy/v2/${sanitizeEmail(targetEmail)}/${alert.deviceId}/alert"
+        val emailToUse = targetEmail.ifBlank { "smaran_shared" }
+        val topic = "bmtc_findmy/v2/${sanitizeEmail(emailToUse)}/${alert.deviceId}/alert"
         val payload = json.encodeToString(alert)
         if (client?.isConnected != true) {
-            ensureConnected(targetEmail)
+            ensureConnected(emailToUse)
         }
         var ok = publishInternal(topic, payload, qos = 1, retained = false)
         if (!ok) {
-            ensureConnected(targetEmail)
+            ensureConnected(emailToUse)
             ok = publishInternal(topic, payload, qos = 1, retained = false)
         }
         publishInternal("bmtc_findmy/v2/smaran_shared/${alert.deviceId}/alert", payload, qos = 1, retained = false)
@@ -258,14 +263,15 @@ class MqttRelayClient(
     }
 
     override suspend fun sendCommand(targetEmail: String, deviceId: String, command: RemoteCommand): Boolean = withContext(Dispatchers.IO) {
-        val topic = "bmtc_findmy/v2/${sanitizeEmail(targetEmail)}/$deviceId/command"
+        val emailToUse = targetEmail.ifBlank { "smaran_shared" }
+        val topic = "bmtc_findmy/v2/${sanitizeEmail(emailToUse)}/$deviceId/command"
         val payload = json.encodeToString(command)
         if (client?.isConnected != true) {
-            ensureConnected(targetEmail)
+            ensureConnected(emailToUse)
         }
         var ok = publishInternal(topic, payload, qos = 1, retained = false)
         if (!ok) {
-            ensureConnected(targetEmail)
+            ensureConnected(emailToUse)
             ok = publishInternal(topic, payload, qos = 1, retained = false)
         }
         publishInternal("bmtc_findmy/v2/patient_device_at_smaran_local/$deviceId/command", payload, qos = 1, retained = false)
@@ -274,14 +280,15 @@ class MqttRelayClient(
     }
 
     suspend fun publishCognitiveTelemetry(targetEmail: String, telemetry: PatientCognitiveTelemetry): Boolean = withContext(Dispatchers.IO) {
-        val topic = "bmtc_findmy/v2/${sanitizeEmail(targetEmail)}/patient/telemetry"
+        val emailToUse = targetEmail.ifBlank { "smaran_shared" }
+        val topic = "bmtc_findmy/v2/${sanitizeEmail(emailToUse)}/patient/telemetry"
         val payload = json.encodeToString(telemetry)
         if (client?.isConnected != true) {
-            ensureConnected(targetEmail)
+            ensureConnected(emailToUse)
         }
         var ok = publishInternal(topic, payload, qos = 1, retained = true)
         if (!ok) {
-            ensureConnected(targetEmail)
+            ensureConnected(emailToUse)
             ok = publishInternal(topic, payload, qos = 1, retained = true)
         }
         // Mirror to universal channels so any Caregiver receives the live score immediately

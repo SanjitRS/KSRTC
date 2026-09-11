@@ -658,6 +658,42 @@ object MultilingualManager {
             "mni" to "মচুগী মচু খনবিয়ু:",
             "nag" to "INK COLOR select kuribi:"
         ),
+        "color_blue" to mapOf(
+            "en" to "Blue",
+            "hi" to "नीला",
+            "as" to "নীলা",
+            "lus" to "Pawl",
+            "kha" to "Jirngam",
+            "mni" to "নীলা",
+            "nag" to "Blue"
+        ),
+        "color_red" to mapOf(
+            "en" to "Red",
+            "hi" to "लाल",
+            "as" to "ৰঙা",
+            "lus" to "Sen",
+            "kha" to "Saw",
+            "mni" to "অঙাংবা",
+            "nag" to "Red"
+        ),
+        "color_green" to mapOf(
+            "en" to "Green",
+            "hi" to "हरा",
+            "as" to "সেউজীয়া",
+            "lus" to "Hring",
+            "kha" to "Jyrngam",
+            "mni" to "আশীংবা",
+            "nag" to "Green"
+        ),
+        "color_yellow" to mapOf(
+            "en" to "Yellow",
+            "hi" to "पीला",
+            "as" to "হালধীয়া",
+            "lus" to "Eng",
+            "kha" to "Stem",
+            "mni" to "মচু",
+            "nag" to "Yellow"
+        ),
         "game4_next_prompt" to mapOf(
             "en" to "Next",
             "hi" to "अगला",

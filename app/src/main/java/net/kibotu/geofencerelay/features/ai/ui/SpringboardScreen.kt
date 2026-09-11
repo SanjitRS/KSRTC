@@ -1,6 +1,12 @@
 package net.kibotu.geofencerelay.features.ai.ui
 
+import android.Manifest
 import android.content.Context
+import android.content.pm.PackageManager
+import android.os.Build
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.core.content.ContextCompat
 import androidx.compose.animation.*
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.BorderStroke
@@ -69,9 +75,34 @@ fun SpringboardScreen(
 ) {
     val context = LocalContext.current
 
-    // Initialize Multilingual & TTS support
+    // Initialize Multilingual & TTS support and auto-start location tracking service
+    val permissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestMultiplePermissions()
+    ) { perms ->
+        val fineGranted = perms[Manifest.permission.ACCESS_FINE_LOCATION] == true
+        val coarseGranted = perms[Manifest.permission.ACCESS_COARSE_LOCATION] == true
+        if (fineGranted || coarseGranted) {
+            TrackerForegroundService.start(context)
+        }
+    }
+
     LaunchedEffect(Unit) {
         MultilingualManager.initTts(context)
+        val permissions = mutableListOf(
+            Manifest.permission.ACCESS_FINE_LOCATION,
+            Manifest.permission.ACCESS_COARSE_LOCATION
+        )
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            permissions.add(Manifest.permission.POST_NOTIFICATIONS)
+        }
+        val needed = permissions.filter {
+            ContextCompat.checkSelfPermission(context, it) != PackageManager.PERMISSION_GRANTED
+        }
+        if (needed.isNotEmpty()) {
+            permissionLauncher.launch(needed.toTypedArray())
+        } else {
+            TrackerForegroundService.start(context)
+        }
     }
 
     DisposableEffect(Unit) {

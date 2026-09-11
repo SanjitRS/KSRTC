@@ -934,10 +934,10 @@ private fun ColorStroopChallengeGameView(
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
     val colorOptions = listOf(
-        Triple("BLUE", "Blue / नीला", GoogleColors.Blue),
-        Triple("RED", "Red / लाल", GoogleColors.Red),
-        Triple("GREEN", "Green / हरा", GoogleColors.Green),
-        Triple("YELLOW", "Yellow / पीला", GoogleColors.Yellow)
+        Triple("BLUE", MultilingualManager.tr("color_blue", selectedLanguageCode), GoogleColors.Blue),
+        Triple("RED", MultilingualManager.tr("color_red", selectedLanguageCode), GoogleColors.Red),
+        Triple("GREEN", MultilingualManager.tr("color_green", selectedLanguageCode), GoogleColors.Green),
+        Triple("YELLOW", MultilingualManager.tr("color_yellow", selectedLanguageCode), GoogleColors.Yellow)
     )
 
     var currentWordIndex by remember { mutableStateOf(0) }

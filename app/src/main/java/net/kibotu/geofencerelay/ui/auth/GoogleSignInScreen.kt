@@ -420,7 +420,7 @@ fun GoogleSignInScreen(
                     // âš¡ Quick Device Access (Continue as This Device)
                     OutlinedButton(
                         onClick = {
-                            val devEmail = "patient.${android.os.Build.MODEL.replace(' ', '_').lowercase()}@smaran.local"
+                            val devEmail = if (isTrackerMode) "patient.device@smaran.local" else "guardian.device@smaran.local"
                             saveAuthAndProceed(devEmail)
                         },
                         modifier = Modifier

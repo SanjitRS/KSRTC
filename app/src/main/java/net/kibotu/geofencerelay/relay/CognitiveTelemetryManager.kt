@@ -188,6 +188,6 @@ object CognitiveTelemetryManager {
         return appPrefs.getString("user_google_email", null)
             ?: authPrefs.getString("user_google_email", null)
             ?: MqttRelayClient.shared.userEmail.takeIf { it.isNotBlank() }
-            ?: ""
+            ?: "patient.device@smaran.local"
     }
 }
