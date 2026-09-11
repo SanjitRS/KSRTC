@@ -204,7 +204,7 @@ class MqttRelayClient(
         if (client?.isConnected == true && _isConnected.value) return true
         connect(email)
         val start = System.currentTimeMillis()
-        while (System.currentTimeMillis() - start < 3000L) {
+        while (System.currentTimeMillis() - start < 5000L) {
             if (client?.isConnected == true && _isConnected.value) return true
             kotlinx.coroutines.delay(100L)
         }

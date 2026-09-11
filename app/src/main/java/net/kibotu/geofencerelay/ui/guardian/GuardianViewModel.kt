@@ -202,6 +202,10 @@ class GuardianViewModel(application: Application) : AndroidViewModel(application
                         distanceFromCenter = dist,
                         isBreach = _isBreached.value
                     )
+                    if (ping.deviceName.isNotBlank() && _targetPatientEmail.value == "patient.device@smaran.local") {
+                        val autoEmail = "patient.${ping.deviceName.replace(' ', '_').lowercase()}@smaran.local"
+                        relay.subscribeForEmail(autoEmail)
+                    }
                 }
             }
 
@@ -228,6 +232,11 @@ class GuardianViewModel(application: Application) : AndroidViewModel(application
                             prefs.edit().putString("cached_patient_telemetry", json.encodeToString(telemetry)).commit()
                         } catch (e: Exception) {
                             android.util.Log.e("GuardianViewModel", "Failed to cache telemetry: ${e.message}")
+                        }
+                        if (telemetry.patientEmail.isNotBlank() && (_targetPatientEmail.value == "patient.device@smaran.local" || _targetPatientEmail.value.isBlank())) {
+                            _targetPatientEmail.value = telemetry.patientEmail
+                            prefs.edit().putString("target_patient_email", telemetry.patientEmail).apply()
+                            relay.subscribeForEmail(telemetry.patientEmail)
                         }
                     }
                 }
