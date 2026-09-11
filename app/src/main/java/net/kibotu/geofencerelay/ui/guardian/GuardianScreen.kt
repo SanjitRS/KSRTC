@@ -99,6 +99,9 @@ fun GuardianScreen(
 
     var showTargetPatientDialog by remember { mutableStateOf(false) }
     var editingPatientEmail by remember(targetPatientEmail) { mutableStateOf(targetPatientEmail) }
+    var editingPatientAge by remember(patientTelemetry) {
+        mutableStateOf((patientTelemetry?.biologicalAge ?: 68).toString())
+    }
 
     var showZoneEditor by remember { mutableStateOf(false) }
     var sliderRadius by remember(zone.radiusMeters) {
@@ -124,6 +127,15 @@ fun GuardianScreen(
                         singleLine = true,
                         modifier = Modifier.fillMaxWidth()
                     )
+                    Spacer(modifier = Modifier.height(10.dp))
+                    OutlinedTextField(
+                        value = editingPatientAge,
+                        onValueChange = { if (it.all { ch -> ch.isDigit() } && it.length <= 3) editingPatientAge = it },
+                        label = { Text("Patient Biological Age (years)") },
+                        placeholder = { Text("68") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
                     Spacer(modifier = Modifier.height(6.dp))
                     Text(
                         "Default: patient.device@smaran.local\nBoth phones auto-bridge via cross-pairing channels.",
@@ -136,6 +148,10 @@ fun GuardianScreen(
                 Button(
                     onClick = {
                         vm.setTargetPatientEmail(editingPatientEmail)
+                        val ageNum = editingPatientAge.toIntOrNull()
+                        if (ageNum != null && ageNum in 18..110) {
+                            vm.updatePatientAge(ageNum)
+                        }
                         showTargetPatientDialog = false
                     },
                     colors = ButtonDefaults.buttonColors(containerColor = NerColors.Primary)
@@ -876,11 +892,25 @@ fun PatientCognitiveScoresTab(
                                 fontWeight = FontWeight.SemiBold
                             )
                             Spacer(modifier = Modifier.height(2.dp))
-                            Text(
-                                "Cognitive Age: ${telemetry.functionalCognitiveAge} yrs (Bio: ${telemetry.biologicalAge} yrs)",
-                                fontSize = 12.sp,
-                                color = NerColors.NeutralMedium
-                            )
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text(
+                                    "Cognitive Age: ${telemetry.functionalCognitiveAge.toInt()} yrs (Bio: ${telemetry.biologicalAge} yrs)",
+                                    fontSize = 12.sp,
+                                    color = NerColors.NeutralMedium
+                                )
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text(
+                                    "✏️ Edit",
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = NerColors.Primary,
+                                    modifier = Modifier
+                                        .clip(RoundedCornerShape(4.dp))
+                                        .background(NerColors.PrimaryTint)
+                                        .clickable { onChangePatient() }
+                                        .padding(horizontal = 6.dp, vertical = 2.dp)
+                                )
+                            }
                         }
                     }
                 }

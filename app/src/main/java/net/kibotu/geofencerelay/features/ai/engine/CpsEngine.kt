@@ -63,7 +63,7 @@ object CpsEngine {
 
         // 6. Functional Cognitive Age
         val cogAgeDelta = (50.0 - cps) * 0.18
-        val functionalCognitiveAge = (telemetry.age + cogAgeDelta).coerceIn(45.0, 98.0)
+        val functionalCognitiveAge = (telemetry.age + cogAgeDelta).coerceIn(18.0, 110.0)
 
         // 7. Hidden Adaptive Difficulty (Never shown to patient)
         val nextDifficulty = when {

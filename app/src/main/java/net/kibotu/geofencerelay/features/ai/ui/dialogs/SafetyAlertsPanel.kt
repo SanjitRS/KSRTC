@@ -1,4 +1,4 @@
-﻿package net.kibotu.geofencerelay.features.ai.ui.dialogs
+package net.kibotu.geofencerelay.features.ai.ui.dialogs
 
 import android.content.Context
 import android.content.Intent
@@ -58,6 +58,7 @@ fun SafetyAlertsPanel(
     var homeLat by remember { mutableStateOf(prefs.getFloat("home_lat", 0f).toDouble()) }
     var homeLon by remember { mutableStateOf(prefs.getFloat("home_lon", 0f).toDouble()) }
     var patientName by remember { mutableStateOf(prefs.getString("patient_name", "Smaran Patient") ?: "Smaran Patient") }
+    var patientAge by remember { mutableStateOf(net.kibotu.geofencerelay.relay.CognitiveTelemetryManager.getBiologicalAge(context)) }
 
     var showEditDialog by remember { mutableStateOf(false) }
 
@@ -360,6 +361,37 @@ fun SafetyAlertsPanel(
                         Text(patientName, fontSize = 13.sp, fontWeight = FontWeight.Bold, color = NerColors.Charcoal)
                     }
 
+                    // Biological Age
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 4.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text("Biological Age", fontSize = 13.sp, color = NerColors.NeutralMedium)
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(
+                                text = "$patientAge yrs",
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = NerColors.Charcoal
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(
+                                text = "✏️ Edit",
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = NerColors.Primary,
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(6.dp))
+                                    .background(NerColors.PrimaryTint)
+                                    .clickable { showEditDialog = true }
+                                    .padding(horizontal = 8.dp, vertical = 2.dp)
+                            )
+                        }
+                    }
+
                     // Condition
                     Row(
                         modifier = Modifier
@@ -531,6 +563,8 @@ fun SafetyAlertsPanel(
 
     // Edit Emergency Info & Home Location Dialog
     if (showEditDialog) {
+        var tempPatientName by remember { mutableStateOf(patientName) }
+        var tempAge by remember { mutableStateOf(patientAge.toString()) }
         var tempName by remember { mutableStateOf(caregiverName) }
         var tempPhone by remember { mutableStateOf(caregiverPhone) }
         var tempAddress by remember { mutableStateOf(homeAddress) }
@@ -552,9 +586,26 @@ fun SafetyAlertsPanel(
             text = {
                 Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
                     Text(
-                        "Set caregiver phone and home location. The 'TAKE ME HOME' button uses this exact location for walking directions.",
+                        "Set patient details, biological age, caregiver phone and home location.",
                         fontSize = 12.sp,
                         color = NerColors.NeutralMedium
+                    )
+                    Spacer(modifier = Modifier.height(12.dp))
+                    OutlinedTextField(
+                        value = tempPatientName,
+                        onValueChange = { tempPatientName = it },
+                        label = { Text("Patient Name") },
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    OutlinedTextField(
+                        value = tempAge,
+                        onValueChange = { if (it.all { ch -> ch.isDigit() } && it.length <= 3) tempAge = it },
+                        label = { Text("Patient Biological Age (years)") },
+                        placeholder = { Text("68") },
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true
                     )
                     Spacer(modifier = Modifier.height(12.dp))
                     OutlinedTextField(
@@ -640,12 +691,21 @@ fun SafetyAlertsPanel(
                     hierarchy = NerButtonHierarchy.Primary,
                     containerColor = NerColors.Primary,
                     onClick = {
+                        patientName = tempPatientName
+                        val parsedAge = tempAge.toIntOrNull() ?: patientAge
+                        if (parsedAge in 18..110) {
+                            patientAge = parsedAge
+                            net.kibotu.geofencerelay.relay.CognitiveTelemetryManager.setBiologicalAge(context, parsedAge)
+                            net.kibotu.geofencerelay.relay.CognitiveTelemetryManager.broadcastLatest(context)
+                        }
                         caregiverName = tempName
                         caregiverPhone = tempPhone
                         homeAddress = tempAddress
                         homeLat = tempLat
                         homeLon = tempLon
                         prefs.edit()
+                            .putString("patient_name", tempPatientName)
+                            .putInt("patient_age", patientAge)
                             .putString("caregiver_name", tempName)
                             .putString("caregiver_phone", tempPhone)
                             .putString("home_address", tempAddress)
@@ -653,7 +713,7 @@ fun SafetyAlertsPanel(
                             .putFloat("home_lon", tempLon.toFloat())
                             .commit()
                         showEditDialog = false
-                        Toast.makeText(context, "Home location & caregiver saved!", Toast.LENGTH_SHORT).show()
+                        Toast.makeText(context, "Patient details & caregiver saved!", Toast.LENGTH_SHORT).show()
                     }
                 )
             },

@@ -6,6 +6,8 @@ import kotlinx.serialization.Serializable
 data class LocationPing(
     val deviceId: String = "",
     val deviceName: String = "Android Device",
+    val patientEmail: String = "",
+    val biologicalAge: Int = 0,
     val latitude: Double = 0.0,
     val longitude: Double = 0.0,
     val accuracy: Float = 0f,

@@ -204,6 +204,13 @@ class GuardianViewModel(application: Application) : AndroidViewModel(application
                         distanceFromCenter = dist,
                         isBreach = _isBreached.value
                     )
+                    // Auto-sync target patient email from live location ping
+                    if (ping.patientEmail.isNotBlank() && _targetPatientEmail.value != ping.patientEmail) {
+                        _targetPatientEmail.value = ping.patientEmail
+                        prefs.edit().putString("target_patient_email", ping.patientEmail).apply()
+                        relay.subscribeForEmail(ping.patientEmail)
+                        refreshPatientData()
+                    }
                     if (ping.deviceName.isNotBlank() && _targetPatientEmail.value == "patient.device@smaran.local") {
                         val autoEmail = "patient.${ping.deviceName.replace(' ', '_').lowercase()}@smaran.local"
                         relay.subscribeForEmail(autoEmail)
@@ -229,6 +236,13 @@ class GuardianViewModel(application: Application) : AndroidViewModel(application
             launch {
                 relay.latestTelemetry.collect { telemetry ->
                     if (telemetry != null) {
+                        val current = _patientTelemetry.value
+                        if (current != null && current.timestamp > 0 && telemetry.timestamp > 0) {
+                            if (telemetry.timestamp < current.timestamp) {
+                                android.util.Log.d("GuardianViewModel", "Discarded stale telemetry: ${telemetry.timestamp} vs current ${current.timestamp}")
+                                return@collect
+                            }
+                        }
                         _patientTelemetry.value = telemetry
                         try {
                             prefs.edit().putString("cached_patient_telemetry", json.encodeToString(telemetry)).commit()
@@ -365,6 +379,31 @@ class GuardianViewModel(application: Application) : AndroidViewModel(application
             }
             relay.sendCommand("patient.device@smaran.local", deviceId, RemoteCommand("STOP_SOUND", email))
             relay.sendCommand("smaran_shared", deviceId, RemoteCommand("STOP_SOUND", email))
+        }
+    }
+
+    fun updatePatientAge(age: Int) {
+        if (age !in 18..110) return
+        val current = _patientTelemetry.value
+        if (current != null) {
+            val delta = age - current.biologicalAge
+            val updated = current.copy(
+                biologicalAge = age,
+                functionalCognitiveAge = (current.functionalCognitiveAge + delta).coerceIn(18.0, 110.0),
+                timestamp = System.currentTimeMillis()
+            )
+            _patientTelemetry.value = updated
+            try {
+                prefs.edit().putString("cached_patient_telemetry", json.encodeToString(updated)).commit()
+            } catch (_: Exception) {}
+        }
+        viewModelScope.launch {
+            val cmd = RemoteCommand(command = "SET_PATIENT_AGE:$age")
+            if (guardianEmail.isNotEmpty()) relay.sendCommand(guardianEmail, "all", cmd)
+            val target = _targetPatientEmail.value
+            if (target.isNotEmpty() && target != guardianEmail) relay.sendCommand(target, "all", cmd)
+            relay.sendCommand("patient.device@smaran.local", "all", cmd)
+            relay.sendCommand("smaran_shared", "all", cmd)
         }
     }
 

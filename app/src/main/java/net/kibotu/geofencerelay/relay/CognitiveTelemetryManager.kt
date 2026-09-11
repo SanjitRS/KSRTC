@@ -21,6 +21,8 @@ object CognitiveTelemetryManager {
     private const val PREFS_NAME = "cognitive_telemetry_prefs"
     private const val KEY_SESSIONS = "recent_game_sessions"
     private const val KEY_LATEST_TELEMETRY = "latest_telemetry_json"
+    const val KEY_BIOLOGICAL_AGE = "patient_biological_age"
+    const val DEFAULT_BIOLOGICAL_AGE = 68
 
     private val json = Json {
         ignoreUnknownKeys = true
@@ -30,6 +32,24 @@ object CognitiveTelemetryManager {
 
     private val scope = CoroutineScope(Dispatchers.IO)
 
+    fun getBiologicalAge(context: Context): Int {
+        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        val safetyPrefs = context.getSharedPreferences("patient_safety_prefs", Context.MODE_PRIVATE)
+        val saved = prefs.getInt(KEY_BIOLOGICAL_AGE, 0)
+        if (saved in 18..110) return saved
+        val safetySaved = safetyPrefs.getInt(KEY_BIOLOGICAL_AGE, 0)
+        if (safetySaved in 18..110) return safetySaved
+        return DEFAULT_BIOLOGICAL_AGE
+    }
+
+    fun setBiologicalAge(context: Context, age: Int) {
+        val validAge = age.coerceIn(18, 110)
+        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            .edit().putInt(KEY_BIOLOGICAL_AGE, validAge).commit()
+        context.getSharedPreferences("patient_safety_prefs", Context.MODE_PRIVATE)
+            .edit().putInt(KEY_BIOLOGICAL_AGE, validAge).commit()
+    }
+
     fun recordGameAndBroadcast(
         context: Context,
         userEmail: String,
@@ -38,6 +58,9 @@ object CognitiveTelemetryManager {
     ) {
         val effectiveEmail = resolveEmail(context, userEmail)
         val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+
+        val bioAge = assessment.biologicalAge.takeIf { it in 18..110 } ?: getBiologicalAge(context)
+        setBiologicalAge(context, bioAge)
 
         // Load existing sessions
         val existingSessions = getRecentSessions(context).toMutableList()
@@ -64,7 +87,7 @@ object CognitiveTelemetryManager {
             timestamp = System.currentTimeMillis(),
             compositeCps = assessment.cpsScore,
             functionalCognitiveAge = assessment.functionalCognitiveAge,
-            biologicalAge = assessment.biologicalAge,
+            biologicalAge = bioAge,
             memoryRetentionIndex = assessment.subScores.memoryRetentionIndex,
             executiveFunctionIndex = assessment.subScores.executiveFunctionIndex,
             reactionLatencyScore = assessment.subScores.reactionLatencyScore,
@@ -89,7 +112,7 @@ object CognitiveTelemetryManager {
         val primaryEmail = effectiveEmail.ifBlank { "smaran_shared" }
         scope.launch {
             try {
-                Log.d(TAG, "Broadcasting cognitive telemetry for $primaryEmail (CPS=${telemetry.compositeCps})...")
+                Log.d(TAG, "Broadcasting cognitive telemetry for $primaryEmail (CPS=${telemetry.compositeCps}, BioAge=$bioAge)...")
                 MqttRelayClient.shared.publishCognitiveTelemetry(primaryEmail, telemetry)
                 val authorized = try { TrackerForegroundService.getAuthorizedEmails(context) } catch (_: Exception) { emptySet() }
                 for (auth in authorized) {
@@ -105,7 +128,9 @@ object CognitiveTelemetryManager {
 
     fun broadcastLatest(context: Context, userEmail: String = "") {
         val effectiveEmail = resolveEmail(context, userEmail)
+        val currentBioAge = getBiologicalAge(context)
         var latest = getLatestTelemetry(context, effectiveEmail)
+
         if (latest == null) {
             val baselineSession = GameSessionRecord(
                 gameId = "STROOP",
@@ -122,8 +147,8 @@ object CognitiveTelemetryManager {
                 patientName = "Smaran Patient Device",
                 timestamp = System.currentTimeMillis(),
                 compositeCps = 85.0,
-                functionalCognitiveAge = 40.0,
-                biologicalAge = 42,
+                functionalCognitiveAge = (currentBioAge - 2).toDouble().coerceAtLeast(18.0),
+                biologicalAge = currentBioAge,
                 memoryRetentionIndex = 82.0,
                 executiveFunctionIndex = 88.0,
                 reactionLatencyScore = 85.0,
@@ -141,6 +166,18 @@ object CognitiveTelemetryManager {
             } catch (e: Exception) {
                 Log.e(TAG, "Error saving baseline telemetry: ${e.message}")
             }
+        } else if (latest.biologicalAge != currentBioAge) {
+            // Keep existing game session scores, but align biological age and functional age with configured age
+            val delta = currentBioAge - latest.biologicalAge
+            latest = latest.copy(
+                biologicalAge = currentBioAge,
+                functionalCognitiveAge = (latest.functionalCognitiveAge + delta).coerceAtLeast(18.0),
+                timestamp = System.currentTimeMillis()
+            )
+            try {
+                val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+                prefs.edit().putString(KEY_LATEST_TELEMETRY, json.encodeToString(latest)).commit()
+            } catch (_: Exception) {}
         }
 
         val telemetryToSend = latest

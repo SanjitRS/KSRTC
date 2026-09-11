@@ -254,10 +254,18 @@ class TrackerForegroundService : Service() {
                 // Remote commands (e.g. Find My "Play Sound")
                 launch {
                     MqttRelayClient.shared.incomingCommand.collect { cmd ->
-                        when (cmd.command) {
-                            "PLAY_SOUND" -> SoundPlayer.playFindMySound(applicationContext)
-                            "STOP_SOUND" -> SoundPlayer.stopSound()
-                            "FETCH_COGNITIVE_DATA", "SYNC_TELEMETRY" -> {
+                        when {
+                            cmd.command == "PLAY_SOUND" -> SoundPlayer.playFindMySound(applicationContext)
+                            cmd.command == "STOP_SOUND" -> SoundPlayer.stopSound()
+                            cmd.command.startsWith("SET_PATIENT_AGE:") -> {
+                                val age = cmd.command.removePrefix("SET_PATIENT_AGE:").trim().toIntOrNull()
+                                if (age != null && age in 18..110) {
+                                    Log.i(tag, "Received command to set patient biological age to $age")
+                                    CognitiveTelemetryManager.setBiologicalAge(applicationContext, age)
+                                    CognitiveTelemetryManager.broadcastLatest(applicationContext)
+                                }
+                            }
+                            cmd.command.contains("COGNITIVE", ignoreCase = true) || cmd.command.contains("SYNC", ignoreCase = true) -> {
                                 Log.i(tag, "Received request to sync cognitive telemetry")
                                 CognitiveTelemetryManager.broadcastLatest(applicationContext)
                             }
@@ -467,11 +475,17 @@ class TrackerForegroundService : Service() {
                     }
                 }
 
+                val myEmail = applicationContext.getSharedPreferences("auth_prefs", Context.MODE_PRIVATE)
+                    .getString("user_google_email", "") ?: ""
+                val currentBioAge = CognitiveTelemetryManager.getBiologicalAge(applicationContext)
+
                 // Live telemetry broadcast with battery and cached address
                 val battery = BatteryUtils.getBatteryStatus(applicationContext)
                 val ping = LocationPing(
                     deviceId = deviceId,
                     deviceName = deviceName,
+                    patientEmail = myEmail,
+                    biologicalAge = currentBioAge,
                     latitude = lat,
                     longitude = lon,
                     accuracy = accuracy,

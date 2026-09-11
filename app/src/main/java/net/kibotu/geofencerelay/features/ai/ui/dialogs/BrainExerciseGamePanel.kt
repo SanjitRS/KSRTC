@@ -459,10 +459,12 @@ private fun FullScreenMemoryMatchingGameView(
                 if (allMatched) {
                     val durationMs = System.currentTimeMillis() - startTime
                     val pairsMatched = if (currentRound == 1) 4 else 10
-                    val accuracy = if (totalAttempts > 0) (pairsMatched.toDouble() / totalAttempts).coerceIn(0.0, 1.0) else 1.0
+                    val patientAge = net.kibotu.geofencerelay.relay.CognitiveTelemetryManager.getBiologicalAge(context)
+                    val calculatedAccuracy = if (totalAttempts > 0) (pairsMatched.toDouble() / totalAttempts).coerceIn(0.1, 1.0) else 1.0
                     val telemetry = GameSessionTelemetry(
+                        age = patientAge,
                         gameType = "memory_matching",
-                        accuracy = accuracy,
+                        accuracy = calculatedAccuracy,
                         responseTimeMs = durationMs,
                         attempts = totalAttempts,
                         errors = totalErrors,
@@ -486,9 +488,9 @@ private fun FullScreenMemoryMatchingGameView(
                     val session = GameSessionRecord(
                         gameId = "MEMORY_MATCH",
                         gameName = "Jumbo Memory Match",
-                        score = (accuracy * 100).toInt(),
+                        score = (calculatedAccuracy * 100).toInt(),
                         roundsCompleted = currentRound,
-                        accuracyPercent = accuracy * 100.0,
+                        accuracyPercent = calculatedAccuracy * 100.0,
                         averageLatencyMs = durationMs,
                         errors = totalErrors,
                         timestamp = System.currentTimeMillis()
@@ -835,7 +837,9 @@ private fun FullScreenPatternSequenceGameView(
                                                 }
                                             } else {
                                                 val elapsed = System.currentTimeMillis() - startTime
+                                                val patientAge = net.kibotu.geofencerelay.relay.CognitiveTelemetryManager.getBiologicalAge(context)
                                                 val telemetry = GameSessionTelemetry(
+                                                    age = patientAge,
                                                     gameType = "pattern_recognition",
                                                     accuracy = 1.0,
                                                     responseTimeMs = elapsed,
@@ -953,7 +957,9 @@ private fun ColorStroopChallengeGameView(
         if (currentRound >= totalRounds) {
             val elapsed = System.currentTimeMillis() - startTime
             val accuracy = (scoreCount.toDouble() / totalRounds).coerceIn(0.0, 1.0)
+            val patientAge = net.kibotu.geofencerelay.relay.CognitiveTelemetryManager.getBiologicalAge(context)
             val telemetry = GameSessionTelemetry(
+                age = patientAge,
                 gameType = "stroop_test",
                 accuracy = accuracy,
                 responseTimeMs = elapsed,
@@ -1215,7 +1221,9 @@ private fun AscendingTrailMakingGameView(
                                                 currentRound++
                                             } else {
                                                 val elapsed = System.currentTimeMillis() - startTime
+                                                val patientAge = net.kibotu.geofencerelay.relay.CognitiveTelemetryManager.getBiologicalAge(context)
                                                 val telemetry = GameSessionTelemetry(
+                                                    age = patientAge,
                                                     gameType = "trail_making",
                                                     accuracy = 1.0,
                                                     responseTimeMs = elapsed,

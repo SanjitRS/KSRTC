@@ -7,7 +7,7 @@ import kotlinx.serialization.Serializable
  */
 @Serializable
 data class GameSessionTelemetry(
-    val age: Int = 72,
+    val age: Int = 68,
     val educationLevel: Int = 2,
     val preferredLanguage: String = "English",
     val mmseScore: Double = 24.5,

@@ -10,8 +10,8 @@ Direct pre-compiled installable APKs are available in the repository root and `r
 
 | App | Description | Cloud Direct Link | Repository Link |
 | :--- | :--- | :--- | :--- |
-| **Smaran Patient App (Tracker)** | Patient companion with 4 brain exercise games, clinical CPS calculation, and background GPS beacon | [Download Patient APK (Catbox)](https://files.catbox.moe/85cm57.apk) | [Smaran-Patient-App.apk](release/Smaran-Patient-App.apk) |
-| **Smaran Caregiver App (Guardian)** | Real-time OpenStreetMap radar, safe zone geofencing, live clinical CPS dashboard, and game session logs | [Download Caregiver APK (Catbox)](https://files.catbox.moe/p767fp.apk) | [Smaran-Caregiver-App.apk](release/Smaran-Caregiver-App.apk) |
+| **Smaran Patient App (Tracker)** | Patient companion with dynamic biological age configuration, 4 brain exercise games, clinical CPS calculation, and background GPS beacon | [Download Patient APK (Catbox)](https://files.catbox.moe/n0a7mu.apk) | [Smaran-Patient-App.apk](release/Smaran-Patient-App.apk) |
+| **Smaran Caregiver App (Guardian)** | Real-time OpenStreetMap radar, safe zone geofencing, live clinical CPS dashboard with dynamic age sync, and game session logs | [Download Caregiver APK (Catbox)](https://files.catbox.moe/azw9ed.apk) | [Smaran-Caregiver-App.apk](release/Smaran-Caregiver-App.apk) |
 
 ---
 
