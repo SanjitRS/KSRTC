@@ -572,16 +572,14 @@ class TrackerForegroundService : Service() {
     }
 
     private suspend fun broadcastToAuthorizedAccounts(action: suspend (String) -> Unit) {
-        val emails = getAuthorizedEmails().toMutableSet()
-        emails.add("patient.device@smaran.local")
-        emails.add("guardian.device@smaran.local")
-        emails.add("smaran_shared")
-        for (email in emails) {
-            if (email.isBlank()) continue
+        val configured = getAuthorizedEmails().filter { it.isNotBlank() && !it.startsWith("patient.device") }.toSet()
+        val targets = if (configured.isNotEmpty()) {
+            configured
+        } else {
+            setOf("smaran_shared")
+        }
+        for (email in targets) {
             try {
-                if (!MqttRelayClient.shared.isConnected.value) {
-                    MqttRelayClient.shared.connect(email)
-                }
                 action(email)
             } catch (e: Exception) {
                 Log.e(tag, "Failed to broadcast to $email: ${e.message}")

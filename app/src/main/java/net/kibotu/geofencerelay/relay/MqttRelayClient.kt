@@ -33,8 +33,14 @@ class MqttRelayClient(
     private val brokerUrl: String = "tcp://broker.emqx.io:1883"
 ) : RelayClient {
 
-    private val tag = "FindMyMqtt"
-    private val json = Json { ignoreUnknownKeys = true }
+    private val tag = "MqttRelayClient"
+
+    private val json = Json {
+        ignoreUnknownKeys = true
+        isLenient = true
+        coerceInputValues = true
+        encodeDefaults = true
+    }
     private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
 
     private var client: MqttClient? = null
@@ -59,8 +65,6 @@ class MqttRelayClient(
 
     private val _incomingCommand = MutableSharedFlow<RemoteCommand>(replay = 1, extraBufferCapacity = 16)
     override val incomingCommand: SharedFlow<RemoteCommand> = _incomingCommand.asSharedFlow()
-
-    private val publishMutex = Mutex()
 
     private val _latestTelemetry = MutableSharedFlow<PatientCognitiveTelemetry>(replay = 1, extraBufferCapacity = 16)
     val latestTelemetry: SharedFlow<PatientCognitiveTelemetry> = _latestTelemetry.asSharedFlow()
@@ -150,25 +154,25 @@ class MqttRelayClient(
 
     fun subscribeForEmail(email: String) {
         if (email.isBlank()) return
-        activeSubscriptions.add(email.trim().lowercase())
+        val clean = email.trim().lowercase()
+        activeSubscriptions.add(clean)
         val c = client ?: return
         if (!c.isConnected) return
-        val sanitized = sanitizeEmail(email)
+        val sanitized = sanitizeEmail(clean)
         val baseTopic = "bmtc_findmy/v2/$sanitized"
         try {
-            // Subscribe to primary topic
-            c.subscribe("$baseTopic/#", 1)
+            // Subscribe to targeted account topic
+            c.subscribe("$baseTopic/#", 0)
             Log.d(tag, "Subscribed to wildcard $baseTopic/# for Account: $email")
 
-            // Universal cross-device fallback subscriptions (ensures pairing regardless of sign-in status)
-            if (sanitized != "patient_device_at_smaran_local") {
-                c.subscribe("bmtc_findmy/v2/patient_device_at_smaran_local/#", 1)
+            // ONLY subscribe to public fallbacks if user is on unconfigured/default accounts
+            val isDefault = clean.startsWith("patient.device") || clean.startsWith("guardian.device") || clean == "smaran_shared"
+            if (isDefault) {
+                c.subscribe("bmtc_findmy/v2/patient_device_at_smaran_local/#", 0)
+                c.subscribe("bmtc_findmy/v2/guardian_device_at_smaran_local/#", 0)
+                c.subscribe("bmtc_findmy/v2/smaran_shared/#", 0)
+                Log.d(tag, "Subscribed to universal fallback channels for unauthenticated demo")
             }
-            if (sanitized != "guardian_device_at_smaran_local") {
-                c.subscribe("bmtc_findmy/v2/guardian_device_at_smaran_local/#", 1)
-            }
-            c.subscribe("bmtc_findmy/v2/smaran_shared/#", 1)
-            Log.d(tag, "Subscribed to universal cross-pairing channels (smaran_shared, defaults)")
         } catch (e: Exception) {
             Log.e(tag, "Subscribe error: ${e.message}", e)
         }
@@ -249,16 +253,7 @@ class MqttRelayClient(
         if (client?.isConnected != true) {
             ensureConnected(emailToUse)
         }
-        var ok = publishInternal(topic, payload, qos = 0, retained = true)
-        if (!ok) {
-            ensureConnected(emailToUse)
-            ok = publishInternal(topic, payload, qos = 0, retained = true)
-        }
-        // Mirror to universal channels so any paired Caregiver receives live GPS instantly
-        publishInternal("bmtc_findmy/v2/guardian_device_at_smaran_local/${ping.deviceId}/location", payload, qos = 0, retained = true)
-        publishInternal("bmtc_findmy/v2/patient_device_at_smaran_local/${ping.deviceId}/location", payload, qos = 0, retained = true)
-        publishInternal("bmtc_findmy/v2/smaran_shared/${ping.deviceId}/location", payload, qos = 0, retained = true)
-        ok
+        publishInternal(topic, payload, qos = 0, retained = true)
     }
 
     override suspend fun publishAlert(targetEmail: String, alert: BreachAlert): Boolean = withContext(Dispatchers.IO) {
@@ -268,13 +263,7 @@ class MqttRelayClient(
         if (client?.isConnected != true) {
             ensureConnected(emailToUse)
         }
-        var ok = publishInternal(topic, payload, qos = 1, retained = false)
-        if (!ok) {
-            ensureConnected(emailToUse)
-            ok = publishInternal(topic, payload, qos = 1, retained = false)
-        }
-        publishInternal("bmtc_findmy/v2/smaran_shared/${alert.deviceId}/alert", payload, qos = 1, retained = false)
-        ok
+        publishInternal(topic, payload, qos = 1, retained = false)
     }
 
     override suspend fun sendCommand(targetEmail: String, deviceId: String, command: RemoteCommand): Boolean = withContext(Dispatchers.IO) {
@@ -284,16 +273,7 @@ class MqttRelayClient(
         if (client?.isConnected != true) {
             ensureConnected(emailToUse)
         }
-        var ok = publishInternal(topic, payload, qos = 1, retained = false)
-        if (!ok) {
-            ensureConnected(emailToUse)
-            ok = publishInternal(topic, payload, qos = 1, retained = false)
-        }
-        publishInternal("bmtc_findmy/v2/patient_device_at_smaran_local/$deviceId/command", payload, qos = 1, retained = false)
-        publishInternal("bmtc_findmy/v2/patient_device_at_smaran_local/all/command", payload, qos = 1, retained = false)
-        publishInternal("bmtc_findmy/v2/smaran_shared/$deviceId/command", payload, qos = 1, retained = false)
-        publishInternal("bmtc_findmy/v2/smaran_shared/all/command", payload, qos = 1, retained = false)
-        ok
+        publishInternal(topic, payload, qos = 1, retained = false)
     }
 
     suspend fun publishCognitiveTelemetry(targetEmail: String, telemetry: PatientCognitiveTelemetry): Boolean = withContext(Dispatchers.IO) {
@@ -303,25 +283,16 @@ class MqttRelayClient(
         if (client?.isConnected != true) {
             ensureConnected(emailToUse)
         }
-        var ok = publishInternal(topic, payload, qos = 1, retained = true)
-        if (!ok) {
-            ensureConnected(emailToUse)
-            ok = publishInternal(topic, payload, qos = 1, retained = true)
-        }
-        // Mirror to universal channels so any Caregiver receives the live score immediately
-        publishInternal("bmtc_findmy/v2/guardian_device_at_smaran_local/patient/telemetry", payload, qos = 1, retained = true)
-        publishInternal("bmtc_findmy/v2/patient_device_at_smaran_local/patient/telemetry", payload, qos = 1, retained = true)
-        publishInternal("bmtc_findmy/v2/smaran_shared/patient/telemetry", payload, qos = 1, retained = true)
-        ok
+        publishInternal(topic, payload, qos = 1, retained = true)
     }
 
-    private suspend fun publishInternal(topic: String, payload: String, qos: Int, retained: Boolean): Boolean = publishMutex.withLock {
+    private fun publishInternal(topic: String, payload: String, qos: Int, retained: Boolean): Boolean {
         val c = client
         if (c == null || !c.isConnected) {
             Log.w(tag, "Cannot publish to $topic: disconnected")
-            return@withLock false
+            return false
         }
-        return@withLock try {
+        return try {
             val message = MqttMessage(payload.toByteArray()).apply {
                 this.qos = qos
                 this.isRetained = retained
@@ -330,7 +301,7 @@ class MqttRelayClient(
             Log.d(tag, "Published to $topic (qos=$qos, retained=$retained)")
             true
         } catch (e: Exception) {
-            Log.e(tag, "Publish failed: ${e.message}", e)
+            Log.e(tag, "Publish failed to $topic: ${e.message}")
             false
         }
     }

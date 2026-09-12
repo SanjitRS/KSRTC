@@ -191,9 +191,27 @@ class GuardianViewModel(application: Application) : AndroidViewModel(application
                 relay.latestPing.collect { ping ->
                     if (ping.latitude == 0.0 && ping.longitude == 0.0) return@collect
 
+                    val target = _targetPatientEmail.value.trim().lowercase()
+                    val pingEmail = ping.patientEmail.trim().lowercase()
+
+                    // Strict Target Filtering:
+                    // If target is configured, ONLY process pings from that patient!
+                    if (target.isNotEmpty() && target != "patient.device@smaran.local") {
+                        if (pingEmail.isNotEmpty() && pingEmail != target) {
+                            return@collect
+                        }
+                    } else {
+                        // If target was empty/default and we receive a real email, lock onto it
+                        if (pingEmail.isNotEmpty() && pingEmail != "patient.device@smaran.local") {
+                            _targetPatientEmail.value = pingEmail
+                            prefs.edit().putString("target_patient_email", pingEmail).apply()
+                            relay.subscribeForEmail(pingEmail)
+                        }
+                    }
+
                     val currentPing = _targetPing.value
-                    // Discard stale or out-of-order pings (protect against broker delivering old retained packets from offline devices)
-                    if (currentPing != null && ping.timestamp < currentPing.timestamp - 5000L) {
+                    // Discard stale packets from offline devices (> 2 minutes old)
+                    if (currentPing != null && ping.timestamp > 0 && ping.timestamp < currentPing.timestamp - 120_000L) {
                         return@collect
                     }
 
@@ -213,13 +231,6 @@ class GuardianViewModel(application: Application) : AndroidViewModel(application
                         distanceFromCenter = dist,
                         isBreach = _isBreached.value
                     )
-                    // Auto-sync target patient email from live location ping
-                    if (ping.patientEmail.isNotBlank() && _targetPatientEmail.value != ping.patientEmail) {
-                        _targetPatientEmail.value = ping.patientEmail
-                        prefs.edit().putString("target_patient_email", ping.patientEmail).apply()
-                        relay.subscribeForEmail(ping.patientEmail)
-                        refreshPatientData()
-                    }
 
                     // Real-time live CPS telemetry sync embedded in 3s location ping
                     if (ping.compositeCps > 0.0 || ping.recentGameSessionsJson.isNotBlank() || ping.totalGamesPlayedToday > 0) {
@@ -293,6 +304,14 @@ class GuardianViewModel(application: Application) : AndroidViewModel(application
             launch {
                 relay.latestTelemetry.collect { telemetry ->
                     if (telemetry != null) {
+                        val currentTarget = _targetPatientEmail.value.trim().lowercase()
+                        val telEmail = telemetry.patientEmail.trim().lowercase()
+                        val isConfigured = currentTarget.isNotEmpty() && currentTarget != "patient.device@smaran.local"
+                        if (isConfigured && telEmail.isNotEmpty() && telEmail != currentTarget) {
+                            // Discard telemetry from non-targeted accounts to prevent cross-device contamination
+                            return@collect
+                        }
+
                         val currentTel = _patientTelemetry.value
                         val mergedSessions = if (telemetry.recentGameSessions.isNotEmpty()) {
                             telemetry.recentGameSessions
@@ -319,7 +338,7 @@ class GuardianViewModel(application: Application) : AndroidViewModel(application
                         } catch (e: Exception) {
                             android.util.Log.e("GuardianViewModel", "Failed to cache telemetry: ${e.message}")
                         }
-                        if (telemetry.patientEmail.isNotBlank() && _targetPatientEmail.value != telemetry.patientEmail) {
+                        if (!isConfigured && telemetry.patientEmail.isNotBlank()) {
                             _targetPatientEmail.value = telemetry.patientEmail
                             prefs.edit().putString("target_patient_email", telemetry.patientEmail).apply()
                             relay.subscribeForEmail(telemetry.patientEmail)
