@@ -149,66 +149,70 @@ fun OsmMapView(
         modifier = modifier,
         factory = { map },
         update = {
-            var overlaysDirty = false
+            try {
+                var overlaysDirty = false
 
-            // 1. Update Safe Zone Circle ONLY when zone values or breach state actually change
-            val zoneChanged = zone.latitude != lastZoneLat || zone.longitude != lastZoneLon || zone.radiusMeters != lastZoneRadius || isBreached != lastBreachState
-            if (zoneChanged) {
-                lastZoneLat = zone.latitude
-                lastZoneLon = zone.longitude
-                lastZoneRadius = zone.radiusMeters
-                lastBreachState = isBreached
+                // 1. Update Safe Zone Circle ONLY when zone values or breach state actually change
+                val zoneChanged = zone.latitude != lastZoneLat || zone.longitude != lastZoneLon || zone.radiusMeters != lastZoneRadius || isBreached != lastBreachState
+                if (zoneChanged) {
+                    lastZoneLat = zone.latitude
+                    lastZoneLon = zone.longitude
+                    lastZoneRadius = zone.radiusMeters
+                    lastBreachState = isBreached
 
-                if (zone.latitude != 0.0 && zone.longitude != 0.0) {
-                    circle.points = Polygon.pointsAsCircle(
-                        GeoPoint(zone.latitude, zone.longitude),
-                        zone.radiusMeters
-                    )
-                    val strokeColor = if (isBreached) Color.RED else Color.rgb(251, 121, 34) // IRCTC Saffron
-                    val fillColor = if (isBreached) Color.argb(40, 220, 38, 38) else Color.argb(35, 251, 121, 34)
-                    circle.outlinePaint.color = strokeColor
-                    circle.fillPaint.color = fillColor
-                    circle.isEnabled = true
+                    if (zone.latitude != 0.0 && zone.longitude != 0.0) {
+                        circle.points = Polygon.pointsAsCircle(
+                            GeoPoint(zone.latitude, zone.longitude),
+                            zone.radiusMeters
+                        )
+                        val strokeColor = if (isBreached) Color.RED else Color.rgb(251, 121, 34) // IRCTC Saffron
+                        val fillColor = if (isBreached) Color.argb(40, 220, 38, 38) else Color.argb(35, 251, 121, 34)
+                        circle.outlinePaint.color = strokeColor
+                        circle.fillPaint.color = fillColor
+                        circle.isEnabled = true
 
-                    cMarker.position = GeoPoint(zone.latitude, zone.longitude)
-                    cMarker.title = "🛡️ ${zone.name}"
-                    cMarker.snippet = "Radius: ${zone.radiusMeters.toInt()}m"
-                    cMarker.isEnabled = true
-                } else {
-                    circle.isEnabled = false
-                    cMarker.isEnabled = false
+                        cMarker.position = GeoPoint(zone.latitude, zone.longitude)
+                        cMarker.title = "🛡️ ${zone.name}"
+                        cMarker.snippet = "Radius: ${zone.radiusMeters.toInt()}m"
+                        cMarker.isEnabled = true
+                    } else {
+                        circle.isEnabled = false
+                        cMarker.isEnabled = false
+                    }
+                    overlaysDirty = true
                 }
-                overlaysDirty = true
-            }
 
-            // 2. Update Target Device Marker & Accuracy Circle ONLY when coordinates actually change
-            val curLat = targetPing?.latitude ?: 0.0
-            val curLon = targetPing?.longitude ?: 0.0
-            val targetChanged = curLat != lastTargetLat || curLon != lastTargetLon
-            if (targetChanged) {
-                lastTargetLat = curLat
-                lastTargetLon = curLon
+                // 2. Update Target Device Marker & Accuracy Circle ONLY when coordinates actually change
+                val curLat = targetPing?.latitude ?: 0.0
+                val curLon = targetPing?.longitude ?: 0.0
+                val targetChanged = curLat != lastTargetLat || curLon != lastTargetLon
+                if (targetChanged) {
+                    lastTargetLat = curLat
+                    lastTargetLon = curLon
 
-                if (targetPing != null && targetPing.latitude != 0.0) {
-                    val geoPoint = GeoPoint(targetPing.latitude, targetPing.longitude)
-                    tMarker.position = geoPoint
-                    tMarker.title = if (isBreached) "🚨 ${targetPing.deviceName} (BREACH)" else "📍 ${targetPing.deviceName}"
-                    val accInfo = if (targetPing.accuracy > 0f) " (±${targetPing.accuracy.toInt()}m accuracy)" else ""
-                    tMarker.snippet = "${targetPing.address}$accInfo"
-                    tMarker.isEnabled = true
+                    if (targetPing != null && targetPing.latitude != 0.0) {
+                        val geoPoint = GeoPoint(targetPing.latitude, targetPing.longitude)
+                        tMarker.position = geoPoint
+                        tMarker.title = if (isBreached) "🚨 ${targetPing.deviceName} (BREACH)" else "📍 ${targetPing.deviceName}"
+                        val accInfo = if (targetPing.accuracy > 0f) " (±${targetPing.accuracy.toInt()}m accuracy)" else ""
+                        tMarker.snippet = "${targetPing.address}$accInfo"
+                        tMarker.isEnabled = true
 
-                    val radius = if (targetPing.accuracy > 0f) targetPing.accuracy.toDouble().coerceAtLeast(4.0) else 10.0
-                    accCircle.points = Polygon.pointsAsCircle(geoPoint, radius)
-                    accCircle.isEnabled = true
-                } else {
-                    tMarker.isEnabled = false
-                    accCircle.isEnabled = false
+                        val radius = if (targetPing.accuracy > 0f) targetPing.accuracy.toDouble().coerceAtLeast(4.0) else 10.0
+                        accCircle.points = Polygon.pointsAsCircle(geoPoint, radius)
+                        accCircle.isEnabled = true
+                    } else {
+                        tMarker.isEnabled = false
+                        accCircle.isEnabled = false
+                    }
+                    overlaysDirty = true
                 }
-                overlaysDirty = true
-            }
 
-            if (overlaysDirty) {
-                map.invalidate()
+                if (overlaysDirty) {
+                    map.invalidate()
+                }
+            } catch (t: Throwable) {
+                android.util.Log.e("OsmMapView", "Error updating map overlays: ${t.message}", t)
             }
         }
     )

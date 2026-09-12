@@ -89,7 +89,7 @@ class MqttRelayClient(
         if (existing != null && existing.isConnected) {
             _isConnected.value = true
             subscribeForEmail(currentUserEmail)
-            for (subEmail in activeSubscriptions) {
+            for (subEmail in activeSubscriptions.toList()) {
                 if (subEmail != currentUserEmail) subscribeForEmail(subEmail)
             }
             return@withContext true
@@ -111,7 +111,7 @@ class MqttRelayClient(
                     Log.d(tag, "Connected to relay (reconnect=$reconnect, server=$serverURI)")
                     _isConnected.value = true
                     subscribeForEmail(currentUserEmail)
-                    for (subEmail in activeSubscriptions) {
+                    for (subEmail in activeSubscriptions.toList()) {
                         if (subEmail != currentUserEmail) subscribeForEmail(subEmail)
                     }
                 }
@@ -156,25 +156,27 @@ class MqttRelayClient(
         if (email.isBlank()) return
         val clean = email.trim().lowercase()
         activeSubscriptions.add(clean)
-        val c = client ?: return
-        if (!c.isConnected) return
-        val sanitized = sanitizeEmail(clean)
-        val baseTopic = "bmtc_findmy/v2/$sanitized"
-        try {
-            // Subscribe to targeted account topic
-            c.subscribe("$baseTopic/#", 0)
-            Log.d(tag, "Subscribed to wildcard $baseTopic/# for Account: $email")
+        scope.launch(Dispatchers.IO) {
+            val c = client ?: return@launch
+            if (!c.isConnected) return@launch
+            val sanitized = sanitizeEmail(clean)
+            val baseTopic = "bmtc_findmy/v2/$sanitized"
+            try {
+                // Subscribe to targeted account topic
+                c.subscribe("$baseTopic/#", 0)
+                Log.d(tag, "Subscribed to wildcard $baseTopic/# for Account: $email")
 
-            // ONLY subscribe to public fallbacks if user is on unconfigured/default accounts
-            val isDefault = clean.startsWith("patient.device") || clean.startsWith("guardian.device") || clean == "smaran_shared"
-            if (isDefault) {
-                c.subscribe("bmtc_findmy/v2/patient_device_at_smaran_local/#", 0)
-                c.subscribe("bmtc_findmy/v2/guardian_device_at_smaran_local/#", 0)
-                c.subscribe("bmtc_findmy/v2/smaran_shared/#", 0)
-                Log.d(tag, "Subscribed to universal fallback channels for unauthenticated demo")
+                // ONLY subscribe to public fallbacks if user is on unconfigured/default accounts
+                val isDefault = clean.startsWith("patient.device") || clean.startsWith("guardian.device") || clean == "smaran_shared"
+                if (isDefault) {
+                    c.subscribe("bmtc_findmy/v2/patient_device_at_smaran_local/#", 0)
+                    c.subscribe("bmtc_findmy/v2/guardian_device_at_smaran_local/#", 0)
+                    c.subscribe("bmtc_findmy/v2/smaran_shared/#", 0)
+                    Log.d(tag, "Subscribed to universal fallback channels for unauthenticated demo")
+                }
+            } catch (e: Throwable) {
+                Log.e(tag, "Subscribe error: ${e.message}", e)
             }
-        } catch (e: Exception) {
-            Log.e(tag, "Subscribe error: ${e.message}", e)
         }
     }
 

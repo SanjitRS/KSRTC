@@ -33,13 +33,19 @@ class GuardianViewModel(application: Application) : AndroidViewModel(application
 
     private val app = application
     private val prefs = app.getSharedPreferences("guardian_target_prefs", Context.MODE_PRIVATE)
-    private val json = Json { ignoreUnknownKeys = true }
+    private val json = Json {
+        ignoreUnknownKeys = true
+        isLenient = true
+        coerceInputValues = true
+        encodeDefaults = true
+    }
 
     private fun loadCachedTelemetry(): PatientCognitiveTelemetry? {
         val raw = prefs.getString("cached_patient_telemetry", null) ?: return null
         return try {
             json.decodeFromString<PatientCognitiveTelemetry>(raw)
-        } catch (_: Exception) {
+        } catch (t: Throwable) {
+            android.util.Log.e("GuardianViewModel", "Error reading cached telemetry: ${t.message}")
             null
         }
     }
@@ -238,7 +244,7 @@ class GuardianViewModel(application: Application) : AndroidViewModel(application
                         val decodedSessions: List<GameSessionRecord> = if (ping.recentGameSessionsJson.isNotBlank()) {
                             try {
                                 json.decodeFromString<List<GameSessionRecord>>(ping.recentGameSessionsJson)
-                            } catch (_: Exception) {
+                            } catch (_: Throwable) {
                                 current?.recentGameSessions ?: emptyList()
                             }
                         } else {

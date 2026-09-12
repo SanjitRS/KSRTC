@@ -1024,7 +1024,7 @@ fun PatientCognitiveScoresTab(
                             contentAlignment = Alignment.Center
                         ) {
                             Icon(
-                                Icons.Default.Bedtime,
+                                Icons.Default.Nightlight,
                                 contentDescription = null,
                                 tint = if (telemetry.circadianRisk == "Low") NerColors.Secondary else NerColors.Crimson,
                                 modifier = Modifier.size(24.dp)
@@ -1047,34 +1047,38 @@ fun PatientCognitiveScoresTab(
             item {
                 Button(
                     onClick = {
-                        val assessmentObj = CpsAssessmentResult(
-                            cpsScore = telemetry.compositeCps,
-                            functionalCognitiveAge = telemetry.functionalCognitiveAge,
-                            biologicalAge = telemetry.biologicalAge,
-                            subScores = SubDomainScores(
-                                autobiographicalReminiscence = 85.0,
-                                memoryRetentionIndex = telemetry.memoryRetentionIndex,
-                                reactionLatencyScore = telemetry.reactionLatencyScore,
-                                executiveFunctionIndex = telemetry.executiveFunctionIndex,
-                                errorRecoveryRate = telemetry.errorRecoveryRate
-                            ),
-                            motorJitterIndex = 0.05,
-                            motorDiagnostic = "Smooth steady gestures",
-                            speechHesitationScore = 0.08,
-                            speechDiagnostic = "Fluent prosody",
-                            hiddenDifficulty = "Adaptive",
-                            fatigueIndex = telemetry.fatigueIndex,
-                            avgReactionPerAttemptMs = telemetry.reactionLatencyScore * 7.0,
-                            circadianRisk = telemetry.circadianRisk,
-                            optimalExerciseWindow = "Morning 9-11 AM",
-                            projectedCps30Days = telemetry.compositeCps + 1.0,
-                            projectedCps90Days = telemetry.compositeCps + 3.0,
-                            trajectoryStatus = telemetry.trajectoryStatus,
-                            caregiverReminiscencePlan = "Review family photos",
-                            encouragementPrompt = "Great effort! Keep up your daily cognitive exercises."
-                        )
-                        val reportMd = ClinicalReportGenerator.generateMarkdownReport(assessmentObj)
-                        ClinicalReportGenerator.shareClinicalReport(context, reportMd, targetEmail)
+                        try {
+                            val assessmentObj = CpsAssessmentResult(
+                                cpsScore = telemetry.compositeCps,
+                                functionalCognitiveAge = telemetry.functionalCognitiveAge,
+                                biologicalAge = telemetry.biologicalAge,
+                                subScores = SubDomainScores(
+                                    autobiographicalReminiscence = 85.0,
+                                    memoryRetentionIndex = telemetry.memoryRetentionIndex,
+                                    reactionLatencyScore = telemetry.reactionLatencyScore,
+                                    executiveFunctionIndex = telemetry.executiveFunctionIndex,
+                                    errorRecoveryRate = telemetry.errorRecoveryRate
+                                ),
+                                motorJitterIndex = 0.05,
+                                motorDiagnostic = "Smooth steady gestures",
+                                speechHesitationScore = 0.08,
+                                speechDiagnostic = "Fluent prosody",
+                                hiddenDifficulty = "Adaptive",
+                                fatigueIndex = telemetry.fatigueIndex,
+                                avgReactionPerAttemptMs = telemetry.reactionLatencyScore * 7.0,
+                                circadianRisk = telemetry.circadianRisk,
+                                optimalExerciseWindow = "Morning 9-11 AM",
+                                projectedCps30Days = telemetry.compositeCps + 1.0,
+                                projectedCps90Days = telemetry.compositeCps + 3.0,
+                                trajectoryStatus = telemetry.trajectoryStatus,
+                                caregiverReminiscencePlan = "Review family photos",
+                                encouragementPrompt = "Great effort! Keep up your daily cognitive exercises."
+                            )
+                            val reportMd = ClinicalReportGenerator.generateMarkdownReport(assessmentObj)
+                            ClinicalReportGenerator.shareClinicalReport(context, reportMd, targetEmail)
+                        } catch (t: Throwable) {
+                            android.util.Log.e("GuardianScreen", "Failed to share report: ${t.message}", t)
+                        }
                     },
                     modifier = Modifier.fillMaxWidth(),
                     colors = ButtonDefaults.buttonColors(containerColor = NerColors.Tertiary),
@@ -1091,24 +1095,31 @@ fun PatientCognitiveScoresTab(
 
 @Composable
 fun ScoreProgressBar(label: String, score: Double, color: Color) {
-    Column(modifier = Modifier.padding(vertical = 6.dp)) {
+    val progress = (score / 100.0).coerceIn(0.0, 1.0).toFloat()
+    Column(modifier = Modifier.padding(vertical = 5.dp)) {
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
-            Text(label, fontSize = 13.sp, fontWeight = FontWeight.Medium, color = NerColors.Charcoal)
+            Text(label, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = NerColors.Charcoal)
             Text("${score.toInt()}%", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = color)
         }
         Spacer(modifier = Modifier.height(5.dp))
-        LinearProgressIndicator(
-            progress = { (score / 100f).toFloat().coerceIn(0f, 1f) },
+        Box(
             modifier = Modifier
                 .fillMaxWidth()
                 .height(8.dp)
-                .clip(RoundedCornerShape(4.dp)),
-            color = color,
-            trackColor = NerColors.NeutralSoft
-        )
+                .clip(RoundedCornerShape(percent = 50))
+                .background(NerColors.NeutralSoft)
+        ) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth(fraction = progress)
+                    .fillMaxHeight()
+                    .clip(RoundedCornerShape(percent = 50))
+                    .background(color)
+            )
+        }
     }
 }
 
