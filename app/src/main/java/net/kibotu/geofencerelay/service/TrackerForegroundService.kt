@@ -127,6 +127,11 @@ class TrackerForegroundService : Service() {
             stopSelf()
             return START_NOT_STICKY
         }
+        if (intent?.action == ACTION_IMMEDIATE_PING) {
+            fetchImmediateLocationFix()
+            broadcastStationaryNow()
+            return START_STICKY
+        }
         startForegroundNotification()
         startTracking()
         return START_STICKY
@@ -276,8 +281,10 @@ class TrackerForegroundService : Service() {
                                 }
                             }
                             cmd.command.contains("COGNITIVE", ignoreCase = true) || cmd.command.contains("SYNC", ignoreCase = true) -> {
-                                Log.i(tag, "Received request to sync cognitive telemetry")
+                                Log.i(tag, "Received request to sync cognitive telemetry and location immediately")
                                 CognitiveTelemetryManager.broadcastLatest(applicationContext)
+                                fetchImmediateLocationFix()
+                                broadcastStationaryNow()
                             }
                         }
                     }
@@ -314,31 +321,35 @@ class TrackerForegroundService : Service() {
                         // Poll for fresh location fix
                         fetchImmediateLocationFix()
 
-                        // Stationary Heartbeat: If device is resting still indoors, heartbeat last fix every 3s
+                        // Stationary Heartbeat: If device is resting still indoors, heartbeat last fix every 1.5s
                         broadcastHeartbeatIfStationary()
 
-                        // Periodically refresh and broadcast latest cognitive telemetry (every 15s)
+                        // Periodically refresh and broadcast latest cognitive telemetry (every 5s)
                         val now = System.currentTimeMillis()
-                        if (now - lastCognitiveBroadcastTime > 15_000L) {
+                        if (now - lastCognitiveBroadcastTime > 5000L) {
                             lastCognitiveBroadcastTime = now
                             CognitiveTelemetryManager.broadcastLatest(applicationContext)
                         }
                     } catch (e: Exception) {
                         Log.w(tag, "Periodic telemetry loop error: ${e.message}")
                     }
-                    delay(3000L)
+                    delay(1500L)
                 }
             }
         }
     }
 
+    fun broadcastStationaryNow() {
+        val loc = lastKnownLocation
+        if (loc != null && loc.latitude != 0.0 && loc.longitude != 0.0) {
+            broadcastLocationPing(loc)
+        }
+    }
+
     private fun broadcastHeartbeatIfStationary() {
         val now = System.currentTimeMillis()
-        if (now - lastBroadcastTimestamp > 3200L) {
-            val loc = lastKnownLocation
-            if (loc != null && loc.latitude != 0.0 && loc.longitude != 0.0) {
-                broadcastLocationPing(loc)
-            }
+        if (now - lastBroadcastTimestamp > 1800L) {
+            broadcastStationaryNow()
         }
     }
 
@@ -348,13 +359,13 @@ class TrackerForegroundService : Service() {
             fusedLocationClient.removeLocationUpdates(locationCallback)
         } catch (_: Exception) {}
 
-        val intervalMs = if (isHighFrequency) 1500L else 3000L
+        val intervalMs = if (isHighFrequency) 1000L else 1500L
 
         val request = LocationRequest.Builder(
             Priority.PRIORITY_HIGH_ACCURACY,
             intervalMs
         )
-            .setMinUpdateIntervalMillis(1000L)
+            .setMinUpdateIntervalMillis(800L)
             .setMinUpdateDistanceMeters(0f)
             .setWaitForAccurateLocation(false)
             .build()
@@ -511,6 +522,13 @@ class TrackerForegroundService : Service() {
                     json.encodeToString(sessionsToSync.take(15))
                 } catch (_: Exception) { "" }
 
+                val memoryIndex = latestTel?.memoryRetentionIndex ?: 82.0
+                val execIndex = latestTel?.executiveFunctionIndex ?: 88.0
+                val reactScore = latestTel?.reactionLatencyScore ?: 85.0
+                val recoveryRate = latestTel?.errorRecoveryRate ?: 80.0
+                val circadian = latestTel?.circadianRisk ?: "Low"
+                val fatigue = latestTel?.fatigueIndex ?: 0.15
+
                 // Live telemetry broadcast with battery and cached address
                 val battery = BatteryUtils.getBatteryStatus(applicationContext)
                 val ping = LocationPing(
@@ -523,6 +541,12 @@ class TrackerForegroundService : Service() {
                     trajectoryStatus = currentTrajectory,
                     totalGamesPlayedToday = totalGames,
                     recentGameSessionsJson = sessionsJson,
+                    memoryRetentionIndex = memoryIndex,
+                    executiveFunctionIndex = execIndex,
+                    reactionLatencyScore = reactScore,
+                    errorRecoveryRate = recoveryRate,
+                    circadianRisk = circadian,
+                    fatigueIndex = fatigue,
                     latitude = lat,
                     longitude = lon,
                     accuracy = accuracy,
@@ -624,6 +648,22 @@ class TrackerForegroundService : Service() {
 
         const val ACTION_START = "ACTION_START_TRACKING"
         const val ACTION_STOP = "ACTION_STOP_TRACKING"
+        const val ACTION_IMMEDIATE_PING = "ACTION_IMMEDIATE_PING"
+
+        fun triggerImmediateBroadcast(context: Context) {
+            val inst = instance
+            if (inst != null) {
+                inst.fetchImmediateLocationFix()
+                inst.broadcastStationaryNow()
+            } else {
+                val intent = Intent(context, TrackerForegroundService::class.java).apply {
+                    action = ACTION_IMMEDIATE_PING
+                }
+                try {
+                    context.startService(intent)
+                } catch (_: Exception) {}
+            }
+        }
 
         const val PREFS_NAME = "findmy_tracker_prefs"
         const val KEY_IS_RUNNING = "key_is_running"

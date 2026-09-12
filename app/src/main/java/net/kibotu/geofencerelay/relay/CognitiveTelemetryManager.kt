@@ -108,6 +108,11 @@ object CognitiveTelemetryManager {
             Log.e(TAG, "Error saving telemetry: ${e.message}")
         }
 
+        // Trigger immediate LocationPing broadcast with new score, all sub-scores, and session log
+        try {
+            TrackerForegroundService.triggerImmediateBroadcast(context)
+        } catch (_: Exception) {}
+
         // Broadcast over MQTT: publishCognitiveTelemetry handles mirroring to universal channels
         val primaryEmail = effectiveEmail.ifBlank { "smaran_shared" }
         scope.launch {

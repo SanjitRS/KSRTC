@@ -233,7 +233,66 @@ private fun GameHubSelectionView(
                 onClick = { onSelectGame(ActiveGameMode.TRAIL_MAKING) }
             )
 
-            Spacer(modifier = Modifier.height(20.dp))
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // Today's Activity & Scorecard Card
+            val storedSessions = remember { CognitiveTelemetryManager.getRecentSessions(context) }
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(24.dp),
+                colors = CardDefaults.cardColors(containerColor = NerColors.SurfaceWhite),
+                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+                border = CardDefaults.outlinedCardBorder().copy(
+                    brush = androidx.compose.ui.graphics.SolidColor(NerColors.NeutralBorder),
+                    width = 1.dp
+                )
+            ) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Default.SportsEsports, contentDescription = null, tint = NerColors.Primary, modifier = Modifier.size(20.dp))
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text("Recent Games Scorecard", fontWeight = FontWeight.Bold, fontSize = 15.sp, color = NerColors.Charcoal)
+                        }
+                        Text("${storedSessions.size} logged", fontSize = 12.sp, color = NerColors.NeutralMedium)
+                    }
+
+                    Spacer(modifier = Modifier.height(10.dp))
+
+                    if (storedSessions.isEmpty()) {
+                        Text(
+                            text = "Play any game above to start your daily brain workout!",
+                            fontSize = 12.sp,
+                            color = NerColors.NeutralMedium
+                        )
+                    } else {
+                        storedSessions.take(4).forEach { s ->
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(vertical = 3.dp)
+                                    .clip(RoundedCornerShape(8.dp))
+                                    .background(NerColors.CanvasWarm)
+                                    .padding(horizontal = 10.dp, vertical = 6.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(s.gameName.ifBlank { "Brain Challenge Game" }, fontWeight = FontWeight.Bold, fontSize = 12.sp, color = NerColors.Charcoal)
+                                    Text("Accuracy: ${s.accuracyPercent.toInt()}% • Latency: ${s.averageLatencyMs}ms", fontSize = 10.sp, color = NerColors.NeutralMedium)
+                                }
+                                Text("${s.score} pts", fontWeight = FontWeight.Bold, fontSize = 12.sp, color = NerColors.Secondary)
+                            }
+                        }
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
 
             // Game Reminder Interval Card
             Card(

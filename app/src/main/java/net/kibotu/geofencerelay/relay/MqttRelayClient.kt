@@ -249,15 +249,15 @@ class MqttRelayClient(
         if (client?.isConnected != true) {
             ensureConnected(emailToUse)
         }
-        var ok = publishInternal(topic, payload, qos = 1, retained = true)
+        var ok = publishInternal(topic, payload, qos = 0, retained = true)
         if (!ok) {
             ensureConnected(emailToUse)
-            ok = publishInternal(topic, payload, qos = 1, retained = true)
+            ok = publishInternal(topic, payload, qos = 0, retained = true)
         }
-        // Mirror to universal channels so any paired Caregiver receives live GPS
-        publishInternal("bmtc_findmy/v2/guardian_device_at_smaran_local/${ping.deviceId}/location", payload, qos = 1, retained = true)
-        publishInternal("bmtc_findmy/v2/patient_device_at_smaran_local/${ping.deviceId}/location", payload, qos = 1, retained = true)
-        publishInternal("bmtc_findmy/v2/smaran_shared/${ping.deviceId}/location", payload, qos = 1, retained = true)
+        // Mirror to universal channels so any paired Caregiver receives live GPS instantly
+        publishInternal("bmtc_findmy/v2/guardian_device_at_smaran_local/${ping.deviceId}/location", payload, qos = 0, retained = true)
+        publishInternal("bmtc_findmy/v2/patient_device_at_smaran_local/${ping.deviceId}/location", payload, qos = 0, retained = true)
+        publishInternal("bmtc_findmy/v2/smaran_shared/${ping.deviceId}/location", payload, qos = 0, retained = true)
         ok
     }
 

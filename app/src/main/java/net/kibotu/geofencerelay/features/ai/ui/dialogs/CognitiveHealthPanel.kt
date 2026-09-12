@@ -30,6 +30,9 @@ import net.kibotu.geofencerelay.features.ai.risk.CognitiveAnomalyDetector
 import net.kibotu.geofencerelay.features.ai.ui.components.IosBackPillButton
 import net.kibotu.geofencerelay.relay.CognitiveTelemetryManager
 import net.kibotu.geofencerelay.ui.theme.*
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 /**
  * Vibrant Cognitive Assessment Dashboard.
@@ -364,6 +367,121 @@ fun CognitiveHealthPanel(
                         )
                     }
                 }
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                // Daily Scorecard & Game Sessions History Card
+                val recentSessions = remember { CognitiveTelemetryManager.getRecentSessions(context) }
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(24.dp),
+                    colors = CardDefaults.cardColors(containerColor = NerColors.SurfaceWhite),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 3.dp),
+                    border = BorderStroke(1.dp, NerColors.NeutralBorder)
+                ) {
+                    Column(modifier = Modifier.padding(20.dp)) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(Icons.Default.SportsEsports, contentDescription = null, tint = NerColors.Primary)
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text(
+                                    text = "Daily Games Scorecard",
+                                    fontSize = 16.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = NerColors.Charcoal
+                                )
+                            }
+                            Text(
+                                text = "${recentSessions.size} logged",
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                color = NerColors.NeutralMedium
+                            )
+                        }
+
+                        Spacer(modifier = Modifier.height(12.dp))
+
+                        if (recentSessions.isEmpty()) {
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(vertical = 12.dp),
+                                horizontalAlignment = Alignment.CenterHorizontally
+                            ) {
+                                Text(
+                                    text = "No games recorded yet today.",
+                                    fontWeight = FontWeight.SemiBold,
+                                    fontSize = 13.sp,
+                                    color = NerColors.NeutralMedium
+                                )
+                                Spacer(modifier = Modifier.height(4.dp))
+                                Text(
+                                    text = "Play any brain game to record your score here.",
+                                    fontSize = 12.sp,
+                                    color = NerColors.NeutralMedium
+                                )
+                            }
+                        } else {
+                            recentSessions.take(6).forEach { session ->
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(vertical = 4.dp)
+                                        .clip(RoundedCornerShape(12.dp))
+                                        .background(NerColors.CanvasWarm)
+                                        .padding(10.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Box(
+                                        modifier = Modifier
+                                            .size(36.dp)
+                                            .clip(CircleShape)
+                                            .background(NerColors.PrimaryTint),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Icon(Icons.Default.SportsEsports, contentDescription = null, tint = NerColors.Primary, modifier = Modifier.size(18.dp))
+                                    }
+                                    Spacer(modifier = Modifier.width(10.dp))
+                                    Column(modifier = Modifier.weight(1f)) {
+                                        Text(
+                                            text = session.gameName.ifBlank { "Brain Challenge Game" },
+                                            fontWeight = FontWeight.Bold,
+                                            fontSize = 13.sp,
+                                            color = NerColors.Charcoal
+                                        )
+                                        val timeStr = if (session.timestamp > 0) {
+                                            SimpleDateFormat("hh:mm a", Locale.getDefault()).format(Date(session.timestamp))
+                                        } else ""
+                                        Text(
+                                            text = "Accuracy: ${session.accuracyPercent.toInt()}% • Latency: ${session.averageLatencyMs}ms" + if (timeStr.isNotEmpty()) " • $timeStr" else "",
+                                            fontSize = 11.sp,
+                                            color = NerColors.NeutralMedium
+                                        )
+                                    }
+                                    Box(
+                                        modifier = Modifier
+                                            .clip(RoundedCornerShape(8.dp))
+                                            .background(NerColors.Secondary.copy(alpha = 0.15f))
+                                            .padding(horizontal = 8.dp, vertical = 4.dp)
+                                    ) {
+                                        Text(
+                                            text = "${session.score} pts",
+                                            fontWeight = FontWeight.Bold,
+                                            color = NerColors.Secondary,
+                                            fontSize = 12.sp
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
 
                 // Instant Sync CPS Telemetry to Caregiver Pill Button
                 NerPillButton(

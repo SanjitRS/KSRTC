@@ -22,5 +22,11 @@ data class LocationPing(
     val functionalCognitiveAge: Double = 0.0,
     val trajectoryStatus: String = "",
     val totalGamesPlayedToday: Int = 0,
-    val recentGameSessionsJson: String = ""
+    val recentGameSessionsJson: String = "",
+    val memoryRetentionIndex: Double = 0.0,
+    val executiveFunctionIndex: Double = 0.0,
+    val reactionLatencyScore: Double = 0.0,
+    val errorRecoveryRate: Double = 0.0,
+    val circadianRisk: String = "Low",
+    val fatigueIndex: Double = 0.0
 )

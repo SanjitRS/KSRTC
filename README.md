@@ -10,8 +10,8 @@ Direct pre-compiled installable APKs are available in the repository root and `r
 
 | App | Description | Cloud Direct Link | GitHub Direct Link | Repository Link |
 | :--- | :--- | :--- | :--- | :--- |
-| **Smaran Patient App (Tracker)** | Patient companion with dynamic biological age configuration, 4 brain exercise games, clinical CPS calculation, continuous location & game session telemetry | [Download Patient APK (Catbox)](https://files.catbox.moe/y665u6.apk) | [Download Patient APK (GitHub)](https://github.com/SanjitRS/KSRTC/raw/main/release/Smaran-Patient-App.apk) | [Smaran-Patient-App.apk](release/Smaran-Patient-App.apk) |
-| **Smaran Caregiver App (Guardian)** | Real-time OpenStreetMap radar, safe zone geofencing, live clinical CPS dashboard with dynamic age sync, and live game session history log | [Download Caregiver APK (Catbox)](https://files.catbox.moe/fzgr1r.apk) | [Download Caregiver APK (GitHub)](https://github.com/SanjitRS/KSRTC/raw/main/release/Smaran-Caregiver-App.apk) | [Smaran-Caregiver-App.apk](release/Smaran-Caregiver-App.apk) |
+| **Smaran Patient App (Tracker)** | Patient companion with dynamic biological age configuration, 4 brain exercise games, clinical CPS calculation, continuous location & game session telemetry | [Download Patient APK (Catbox)](https://files.catbox.moe/95gxxp.apk) | [Download Patient APK (GitHub)](https://github.com/SanjitRS/KSRTC/raw/main/release/Smaran-Patient-App.apk) | [Smaran-Patient-App.apk](release/Smaran-Patient-App.apk) |
+| **Smaran Caregiver App (Guardian)** | Real-time OpenStreetMap radar, safe zone geofencing, live clinical CPS dashboard with dynamic age sync, and live game session history log | [Download Caregiver APK (Catbox)](https://files.catbox.moe/ygixft.apk) | [Download Caregiver APK (GitHub)](https://github.com/SanjitRS/KSRTC/raw/main/release/Smaran-Caregiver-App.apk) | [Smaran-Caregiver-App.apk](release/Smaran-Caregiver-App.apk) |
 
 ---
 
