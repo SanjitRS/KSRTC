@@ -312,9 +312,9 @@ class TrackerForegroundService : Service() {
                         if (emails.isNotEmpty()) {
                             if (!MqttRelayClient.shared.isConnected.value || !MqttRelayClient.shared.isClientConnected) {
                                 MqttRelayClient.shared.connect(emails.first())
-                            }
-                            for (email in emails) {
-                                MqttRelayClient.shared.subscribeForEmail(email)
+                                for (email in emails) {
+                                    MqttRelayClient.shared.subscribeForEmail(email)
+                                }
                             }
                         }
 

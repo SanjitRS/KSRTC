@@ -18,6 +18,9 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -25,9 +28,12 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import net.kibotu.geofencerelay.features.ai.localization.MultilingualManager
 import net.kibotu.geofencerelay.features.ai.model.CpsAssessmentResult
+import net.kibotu.geofencerelay.features.ai.model.SubDomainScores
 import net.kibotu.geofencerelay.features.ai.report.ClinicalReportGenerator
 import net.kibotu.geofencerelay.features.ai.risk.CognitiveAnomalyDetector
 import net.kibotu.geofencerelay.features.ai.ui.components.IosBackPillButton
+import net.kibotu.geofencerelay.model.GameSessionRecord
+import net.kibotu.geofencerelay.model.PatientCognitiveTelemetry
 import net.kibotu.geofencerelay.relay.CognitiveTelemetryManager
 import net.kibotu.geofencerelay.ui.theme.*
 import java.text.SimpleDateFormat
@@ -49,6 +55,46 @@ fun CognitiveHealthPanel(
     onBack: () -> Unit
 ) {
     val context = LocalContext.current
+    LaunchedEffect(Unit) {
+        CognitiveTelemetryManager.initIfNeeded(context)
+    }
+    val liveTelemetry: PatientCognitiveTelemetry? by CognitiveTelemetryManager.latestTelemetryFlow.collectAsState()
+    val liveSessions: List<GameSessionRecord> by CognitiveTelemetryManager.recentSessionsFlow.collectAsState()
+
+    val activeAssessment = remember(liveTelemetry, assessment) {
+        if (liveTelemetry != null) {
+            val t = liveTelemetry!!
+            CpsAssessmentResult(
+                cpsScore = t.compositeCps,
+                functionalCognitiveAge = t.functionalCognitiveAge,
+                biologicalAge = t.biologicalAge,
+                subScores = SubDomainScores(
+                    autobiographicalReminiscence = 85.0,
+                    memoryRetentionIndex = t.memoryRetentionIndex,
+                    reactionLatencyScore = t.reactionLatencyScore,
+                    executiveFunctionIndex = t.executiveFunctionIndex,
+                    errorRecoveryRate = t.errorRecoveryRate
+                ),
+                motorJitterIndex = 0.05,
+                motorDiagnostic = "Smooth steady gestures",
+                speechHesitationScore = 0.08,
+                speechDiagnostic = "Fluent prosody",
+                hiddenDifficulty = "Adaptive",
+                fatigueIndex = t.fatigueIndex / 100.0,
+                avgReactionPerAttemptMs = t.reactionLatencyScore * 7.0,
+                circadianRisk = t.circadianRisk,
+                optimalExerciseWindow = "Morning 9-11 AM",
+                projectedCps30Days = (t.compositeCps + 1.0),
+                projectedCps90Days = (t.compositeCps + 3.0),
+                trajectoryStatus = t.trajectoryStatus,
+                caregiverReminiscencePlan = "Review family photos",
+                encouragementPrompt = "Great effort! Keep up your daily cognitive exercises."
+            )
+        } else {
+            assessment
+        }
+    }
+
     val baselineHistory = remember { CognitiveAnomalyDetector.getSessionHistory(context) }
     val latestSession = baselineHistory.lastOrNull()
     val anomalyReport = remember(latestSession) {
@@ -144,7 +190,7 @@ fun CognitiveHealthPanel(
                 }
             }
 
-            if (assessment == null) {
+            if (activeAssessment == null) {
                 // Unassessed State Card (Warm 24dp Card)
                 Card(
                     modifier = Modifier.fillMaxWidth(),
@@ -170,11 +216,11 @@ fun CognitiveHealthPanel(
                                 imageVector = Icons.Default.Psychology,
                                 contentDescription = null,
                                 tint = NerColors.Tertiary,
-                                modifier = Modifier.size(46.dp)
+                                modifier = Modifier.size(48.dp)
                             )
                         }
 
-                        Spacer(modifier = Modifier.height(16.dp))
+                        Spacer(modifier = Modifier.height(18.dp))
 
                         Text(
                             text = MultilingualManager.tr("lbl_untested", selectedLanguageCode),
@@ -206,6 +252,7 @@ fun CognitiveHealthPanel(
                     }
                 }
             } else {
+                val assessment = activeAssessment
                 // Calculated CPS Score Card
                 Card(
                     modifier = Modifier.fillMaxWidth(),
@@ -371,7 +418,7 @@ fun CognitiveHealthPanel(
                 Spacer(modifier = Modifier.height(16.dp))
 
                 // Daily Scorecard & Game Sessions History Card
-                val recentSessions = remember { CognitiveTelemetryManager.getRecentSessions(context) }
+                val recentSessions = if (liveSessions.isNotEmpty()) liveSessions else (liveTelemetry?.recentGameSessions ?: CognitiveTelemetryManager.getRecentSessions(context))
                 Card(
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(24.dp),

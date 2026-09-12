@@ -273,7 +273,7 @@ class MqttRelayClient(
         if (client?.isConnected != true) {
             ensureConnected(emailToUse)
         }
-        publishInternal(topic, payload, qos = 1, retained = false)
+        publishInternal(topic, payload, qos = 0, retained = false)
     }
 
     suspend fun publishCognitiveTelemetry(targetEmail: String, telemetry: PatientCognitiveTelemetry): Boolean = withContext(Dispatchers.IO) {
@@ -283,7 +283,7 @@ class MqttRelayClient(
         if (client?.isConnected != true) {
             ensureConnected(emailToUse)
         }
-        publishInternal(topic, payload, qos = 1, retained = true)
+        publishInternal(topic, payload, qos = 0, retained = true)
     }
 
     private fun publishInternal(topic: String, payload: String, qos: Int, retained: Boolean): Boolean {

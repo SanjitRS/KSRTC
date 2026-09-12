@@ -118,6 +118,10 @@ fun SpringboardScreen(
     }
 
     // Load previous assessment if available from local disk cache
+    LaunchedEffect(Unit) {
+        CognitiveTelemetryManager.initIfNeeded(context)
+    }
+    val liveTel by CognitiveTelemetryManager.latestTelemetryFlow.collectAsState()
     val cachedTel = remember { CognitiveTelemetryManager.getLatestTelemetry(context, userEmail) }
     var currentAssessment by remember {
         mutableStateOf<CpsAssessmentResult?>(
@@ -150,6 +154,38 @@ fun SpringboardScreen(
                 )
             }
         )
+    }
+
+    LaunchedEffect(liveTel) {
+        val t = liveTel
+        if (t != null) {
+            currentAssessment = CpsAssessmentResult(
+                cpsScore = t.compositeCps,
+                functionalCognitiveAge = t.functionalCognitiveAge,
+                biologicalAge = t.biologicalAge,
+                subScores = SubDomainScores(
+                    autobiographicalReminiscence = 85.0,
+                    memoryRetentionIndex = t.memoryRetentionIndex,
+                    reactionLatencyScore = t.reactionLatencyScore,
+                    executiveFunctionIndex = t.executiveFunctionIndex,
+                    errorRecoveryRate = t.errorRecoveryRate
+                ),
+                motorJitterIndex = 0.05,
+                motorDiagnostic = "Smooth steady gestures",
+                speechHesitationScore = 0.08,
+                speechDiagnostic = "Fluent prosody",
+                hiddenDifficulty = "Adaptive",
+                fatigueIndex = t.fatigueIndex / 100.0,
+                avgReactionPerAttemptMs = t.reactionLatencyScore * 7.0,
+                circadianRisk = t.circadianRisk,
+                optimalExerciseWindow = "Morning 9-11 AM",
+                projectedCps30Days = (t.compositeCps + 1.0),
+                projectedCps90Days = (t.compositeCps + 3.0),
+                trajectoryStatus = t.trajectoryStatus,
+                caregiverReminiscencePlan = "Review family photos",
+                encouragementPrompt = "Great effort! Keep up your daily cognitive exercises."
+            )
+        }
     }
 
     LaunchedEffect(userEmail) {

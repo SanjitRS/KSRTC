@@ -4,6 +4,10 @@ import android.content.Context
 import android.util.Log
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
@@ -30,7 +34,22 @@ object CognitiveTelemetryManager {
         encodeDefaults = true
     }
 
-    private val scope = CoroutineScope(Dispatchers.IO)
+    private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
+
+    private val _latestTelemetryFlow = MutableStateFlow<PatientCognitiveTelemetry?>(null)
+    val latestTelemetryFlow: StateFlow<PatientCognitiveTelemetry?> = _latestTelemetryFlow.asStateFlow()
+
+    private val _recentSessionsFlow = MutableStateFlow<List<GameSessionRecord>>(emptyList())
+    val recentSessionsFlow: StateFlow<List<GameSessionRecord>> = _recentSessionsFlow.asStateFlow()
+
+    fun initIfNeeded(context: Context) {
+        if (_latestTelemetryFlow.value == null) {
+            _latestTelemetryFlow.value = getLatestTelemetry(context)
+        }
+        if (_recentSessionsFlow.value.isEmpty()) {
+            _recentSessionsFlow.value = getRecentSessions(context)
+        }
+    }
 
     fun getBiologicalAge(context: Context): Int {
         val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
@@ -48,6 +67,20 @@ object CognitiveTelemetryManager {
             .edit().putInt(KEY_BIOLOGICAL_AGE, validAge).commit()
         context.getSharedPreferences("patient_safety_prefs", Context.MODE_PRIVATE)
             .edit().putInt(KEY_BIOLOGICAL_AGE, validAge).commit()
+
+        val current = _latestTelemetryFlow.value ?: getLatestTelemetry(context)
+        if (current != null) {
+            val updated = current.copy(
+                biologicalAge = validAge,
+                functionalCognitiveAge = (validAge - 2.8).coerceAtLeast(18.0),
+                timestamp = System.currentTimeMillis()
+            )
+            _latestTelemetryFlow.value = updated
+            try {
+                context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+                    .edit().putString(KEY_LATEST_TELEMETRY, json.encodeToString(updated)).commit()
+            } catch (_: Exception) {}
+        }
     }
 
     fun recordGameAndBroadcast(
@@ -107,6 +140,9 @@ object CognitiveTelemetryManager {
         } catch (e: Exception) {
             Log.e(TAG, "Error saving telemetry: ${e.message}")
         }
+
+        _latestTelemetryFlow.value = telemetry
+        _recentSessionsFlow.value = trimmedSessions
 
         // Trigger immediate LocationPing broadcast with new score, all sub-scores, and session log
         try {
@@ -196,6 +232,8 @@ object CognitiveTelemetryManager {
         }
 
         val telemetryToSend = latest.copy(timestamp = System.currentTimeMillis())
+        _latestTelemetryFlow.value = telemetryToSend
+        _recentSessionsFlow.value = telemetryToSend.recentGameSessions
         val primaryEmail = effectiveEmail.ifBlank { "smaran_shared" }
         scope.launch {
             try {
