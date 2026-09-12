@@ -1,11 +1,10 @@
 # Smaran: Assistive Cognitive & Patient Safety Platform
 
-## 📱 Latest APK Downloads (Instant Sync & Multi-Broker Robust Connection)
-- **Caregiver App (Guardian)**: [https://files.catbox.moe/a7ujx5.apk](https://files.catbox.moe/a7ujx5.apk)
-- **Patient App (Tracker)**: [https://files.catbox.moe/nojomq.apk](https://files.catbox.moe/nojomq.apk)
+## 📱 Latest APK Downloads (Crash Fix & Instant Sync)
+- **Caregiver App (Guardian)**: [https://files.catbox.moe/9umw8g.apk](https://files.catbox.moe/9umw8g.apk)
+- **Patient App (Tracker)**: [https://files.catbox.moe/kjm1w4.apk](https://files.catbox.moe/kjm1w4.apk)
 
 ### Recent Updates:
-- **Instant GPS & Telemetry Sync**: Real-time 1000ms location heartbeats and 2000ms cognitive telemetry updates.
-- **Universal Multi-Broker Resilience**: Dual-broker fallback (`broker.emqx.io` and `broker.hivemq.com`) with non-blocking reconnect preventing OFFLINE status.
-- **Universal Channel Cross-Publishing**: Automatic cross-broadcasting so patient devices and caregiver devices connect seamlessly across email configurations.
-- **Daily Games Scorecard**: Real-time reactive daily scorecard and game logs on both the Patient App home springboard and Caregiver Dashboard.
+- **Zero Crash Guarantee**: Wrapped all Android 13/14 notification calls (`NotificationHelper`) and Do Not Disturb audio routines (`SoundPlayer`) in defensive permission guards and try-catches.
+- **Unified HiveMQ Relay**: Locked both Caregiver and Patient apps to the canonical `broker.hivemq.com` to eliminate broker split-brain issues.
+- **Instant Live GPS & Telemetry Sync**: Real-time continuous location pings and reactive cognitive scores with cross-channel auto-bridging.
