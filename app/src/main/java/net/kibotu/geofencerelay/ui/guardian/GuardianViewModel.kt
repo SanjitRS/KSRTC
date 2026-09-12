@@ -177,8 +177,11 @@ class GuardianViewModel(application: Application) : AndroidViewModel(application
             launch {
                 relay.activeZone.collect { existingZone ->
                     if (existingZone != null && existingZone.latitude != 0.0) {
-                        hasCustomZoneLocation = true
-                        _zone.value = existingZone
+                        val cur = _zone.value
+                        if (cur.latitude == 0.0 || existingZone.updatedAt >= cur.updatedAt) {
+                            hasCustomZoneLocation = true
+                            _zone.value = existingZone
+                        }
                     }
                 }
             }
@@ -187,6 +190,12 @@ class GuardianViewModel(application: Application) : AndroidViewModel(application
             launch {
                 relay.latestPing.collect { ping ->
                     if (ping.latitude == 0.0 && ping.longitude == 0.0) return@collect
+
+                    val currentPing = _targetPing.value
+                    // Discard stale or out-of-order pings (protect against broker delivering old retained packets from offline devices)
+                    if (currentPing != null && ping.timestamp < currentPing.timestamp - 5000L) {
+                        return@collect
+                    }
 
                     var z = _zone.value
                     // If safe zone center not set yet, anchor it to the tracker's initial position
@@ -219,20 +228,18 @@ class GuardianViewModel(application: Application) : AndroidViewModel(application
                         val newCogAge = if (ping.functionalCognitiveAge > 0.0) ping.functionalCognitiveAge else (current?.functionalCognitiveAge ?: (newAge - 2).toDouble().coerceAtLeast(18.0))
                         val newTrajectory = ping.trajectoryStatus.ifBlank { current?.trajectoryStatus ?: "STABLE" }
 
-                        if (current == null || current.compositeCps != ping.compositeCps || current.biologicalAge != newAge) {
-                            val newTel = (current ?: PatientCognitiveTelemetry()).copy(
-                                patientEmail = ping.patientEmail.ifBlank { current?.patientEmail ?: "" },
-                                compositeCps = ping.compositeCps,
-                                functionalCognitiveAge = newCogAge,
-                                biologicalAge = newAge,
-                                trajectoryStatus = newTrajectory,
-                                timestamp = ping.timestamp
-                            )
-                            _patientTelemetry.value = newTel
-                            try {
-                                prefs.edit().putString("cached_patient_telemetry", json.encodeToString(newTel)).commit()
-                            } catch (_: Exception) {}
-                        }
+                        val newTel = (current ?: PatientCognitiveTelemetry()).copy(
+                            patientEmail = ping.patientEmail.ifBlank { current?.patientEmail ?: "" },
+                            compositeCps = ping.compositeCps,
+                            functionalCognitiveAge = newCogAge,
+                            biologicalAge = newAge,
+                            trajectoryStatus = newTrajectory,
+                            timestamp = ping.timestamp
+                        )
+                        _patientTelemetry.value = newTel
+                        try {
+                            prefs.edit().putString("cached_patient_telemetry", json.encodeToString(newTel)).commit()
+                        } catch (_: Exception) {}
                     }
 
                     if (ping.deviceName.isNotBlank() && _targetPatientEmail.value == "patient.device@smaran.local") {
@@ -260,13 +267,17 @@ class GuardianViewModel(application: Application) : AndroidViewModel(application
             launch {
                 relay.latestTelemetry.collect { telemetry ->
                     if (telemetry != null) {
+                        val currentTel = _patientTelemetry.value
+                        if (currentTel != null && telemetry.timestamp < currentTel.timestamp - 60_000L) {
+                            return@collect
+                        }
                         _patientTelemetry.value = telemetry
                         try {
                             prefs.edit().putString("cached_patient_telemetry", json.encodeToString(telemetry)).commit()
                         } catch (e: Exception) {
                             android.util.Log.e("GuardianViewModel", "Failed to cache telemetry: ${e.message}")
                         }
-                        if (telemetry.patientEmail.isNotBlank() && (_targetPatientEmail.value == "patient.device@smaran.local" || _targetPatientEmail.value.isBlank())) {
+                        if (telemetry.patientEmail.isNotBlank() && _targetPatientEmail.value != telemetry.patientEmail) {
                             _targetPatientEmail.value = telemetry.patientEmail
                             prefs.edit().putString("target_patient_email", telemetry.patientEmail).apply()
                             relay.subscribeForEmail(telemetry.patientEmail)
@@ -286,7 +297,7 @@ class GuardianViewModel(application: Application) : AndroidViewModel(application
             if (target.isNotEmpty() && target != guardianEmail) {
                 relay.sendCommand(target, "all", RemoteCommand(command = "FETCH_COGNITIVE_DATA"))
             }
-            relay.sendCommand("patient.device@smaran.local", "all", RemoteCommand(command = "FETCH_COGNITIVE_DATA"))
+            relay.sendCommand("patient_device_at_smaran_local", "all", RemoteCommand(command = "FETCH_COGNITIVE_DATA"))
             relay.sendCommand("smaran_shared", "all", RemoteCommand(command = "FETCH_COGNITIVE_DATA"))
         }
     }

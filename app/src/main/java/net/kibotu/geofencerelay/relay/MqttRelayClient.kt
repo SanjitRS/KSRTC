@@ -185,8 +185,11 @@ class MqttRelayClient(
                     }
                     topic.endsWith("/zone") -> {
                         val zone = json.decodeFromString<GeofenceZone>(payload)
-                        _activeZone.value = zone
-                        Log.d(tag, "Received geofence zone: ${zone.name} (r=${zone.radiusMeters}m)")
+                        val cur = _activeZone.value
+                        if (cur == null || zone.updatedAt >= cur.updatedAt) {
+                            _activeZone.value = zone
+                            Log.d(tag, "Received geofence zone: ${zone.name} (r=${zone.radiusMeters}m)")
+                        }
                     }
                     topic.endsWith("/alert") -> {
                         val alert = json.decodeFromString<BreachAlert>(payload)
