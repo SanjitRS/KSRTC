@@ -1,8 +1,8 @@
 # Smaran: Assistive Cognitive & Patient Safety Platform
 
 ## 📱 Latest APK Downloads (Instant Bridge & Universal Sync)
-- **Caregiver App (Guardian)**: [https://files.catbox.moe/oc3u5s.apk](https://files.catbox.moe/oc3u5s.apk)
-- **Patient App (Tracker)**: [https://files.catbox.moe/2xburn.apk](https://files.catbox.moe/2xburn.apk)
+- **Caregiver App (Guardian)**: [https://files.catbox.moe/v00ozi.apk](https://files.catbox.moe/v00ozi.apk)
+- **Patient App (Tracker)**: [https://files.catbox.moe/qvcff0.apk](https://files.catbox.moe/qvcff0.apk)
 
 ### Recent Updates:
 - **Universal MQTT Bridge**: Caregiver now subscribes to `bmtc_findmy/v2/#`, instantly detecting any Patient device on the HiveMQ broker without requiring manual email typing or prior pairing.
