@@ -1114,7 +1114,7 @@ fun GamesPlayedHistoryTab(
                         }
                         Spacer(modifier = Modifier.width(14.dp))
                         Column(modifier = Modifier.weight(1f)) {
-                            Text(session.gameName, fontWeight = FontWeight.Bold, fontSize = 15.sp, color = NerColors.Charcoal)
+                            Text(session.gameName.ifBlank { "Brain Challenge Game" }, fontWeight = FontWeight.Bold, fontSize = 15.sp, color = NerColors.Charcoal)
                             Spacer(modifier = Modifier.height(2.dp))
                             Text(
                                 "Accuracy: ${session.accuracyPercent.toInt()}% • Latency: ${session.averageLatencyMs}ms",

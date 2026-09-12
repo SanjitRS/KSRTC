@@ -222,18 +222,38 @@ class GuardianViewModel(application: Application) : AndroidViewModel(application
                     }
 
                     // Real-time live CPS telemetry sync embedded in 3s location ping
-                    if (ping.compositeCps > 0.0) {
+                    if (ping.compositeCps > 0.0 || ping.recentGameSessionsJson.isNotBlank() || ping.totalGamesPlayedToday > 0) {
                         val current = _patientTelemetry.value
+                        val decodedSessions: List<GameSessionRecord> = if (ping.recentGameSessionsJson.isNotBlank()) {
+                            try {
+                                json.decodeFromString<List<GameSessionRecord>>(ping.recentGameSessionsJson)
+                            } catch (_: Exception) {
+                                current?.recentGameSessions ?: emptyList()
+                            }
+                        } else {
+                            current?.recentGameSessions ?: emptyList()
+                        }
+
+                        val gamesCount = if (ping.totalGamesPlayedToday > 0) {
+                            ping.totalGamesPlayedToday
+                        } else if (decodedSessions.isNotEmpty()) {
+                            decodedSessions.size
+                        } else {
+                            current?.totalGamesPlayedToday ?: 0
+                        }
+
                         val newAge = if (ping.biologicalAge > 0) ping.biologicalAge else (current?.biologicalAge ?: 68)
                         val newCogAge = if (ping.functionalCognitiveAge > 0.0) ping.functionalCognitiveAge else (current?.functionalCognitiveAge ?: (newAge - 2).toDouble().coerceAtLeast(18.0))
                         val newTrajectory = ping.trajectoryStatus.ifBlank { current?.trajectoryStatus ?: "STABLE" }
 
                         val newTel = (current ?: PatientCognitiveTelemetry()).copy(
                             patientEmail = ping.patientEmail.ifBlank { current?.patientEmail ?: "" },
-                            compositeCps = ping.compositeCps,
+                            compositeCps = if (ping.compositeCps > 0.0) ping.compositeCps else (current?.compositeCps ?: 85.0),
                             functionalCognitiveAge = newCogAge,
                             biologicalAge = newAge,
                             trajectoryStatus = newTrajectory,
+                            totalGamesPlayedToday = gamesCount,
+                            recentGameSessions = if (decodedSessions.isNotEmpty()) decodedSessions else (current?.recentGameSessions ?: emptyList()),
                             timestamp = ping.timestamp
                         )
                         _patientTelemetry.value = newTel
@@ -268,12 +288,28 @@ class GuardianViewModel(application: Application) : AndroidViewModel(application
                 relay.latestTelemetry.collect { telemetry ->
                     if (telemetry != null) {
                         val currentTel = _patientTelemetry.value
-                        if (currentTel != null && telemetry.timestamp < currentTel.timestamp - 60_000L) {
-                            return@collect
+                        val mergedSessions = if (telemetry.recentGameSessions.isNotEmpty()) {
+                            telemetry.recentGameSessions
+                        } else {
+                            currentTel?.recentGameSessions ?: emptyList()
                         }
-                        _patientTelemetry.value = telemetry
+                        val mergedGamesCount = if (telemetry.totalGamesPlayedToday > 0) {
+                            telemetry.totalGamesPlayedToday
+                        } else if (mergedSessions.isNotEmpty()) {
+                            mergedSessions.size
+                        } else {
+                            currentTel?.totalGamesPlayedToday ?: 0
+                        }
+                        val mergedTel = telemetry.copy(
+                            recentGameSessions = mergedSessions,
+                            totalGamesPlayedToday = mergedGamesCount,
+                            compositeCps = if (telemetry.compositeCps > 0.0) telemetry.compositeCps else (currentTel?.compositeCps ?: 85.0),
+                            functionalCognitiveAge = if (telemetry.functionalCognitiveAge > 0.0) telemetry.functionalCognitiveAge else (currentTel?.functionalCognitiveAge ?: 66.0),
+                            biologicalAge = if (telemetry.biologicalAge > 0) telemetry.biologicalAge else (currentTel?.biologicalAge ?: 68)
+                        )
+                        _patientTelemetry.value = mergedTel
                         try {
-                            prefs.edit().putString("cached_patient_telemetry", json.encodeToString(telemetry)).commit()
+                            prefs.edit().putString("cached_patient_telemetry", json.encodeToString(mergedTel)).commit()
                         } catch (e: Exception) {
                             android.util.Log.e("GuardianViewModel", "Failed to cache telemetry: ${e.message}")
                         }

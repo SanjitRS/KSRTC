@@ -21,7 +21,7 @@ data class PatientCognitiveTelemetry(
     val timestamp: Long = System.currentTimeMillis(),
     val compositeCps: Double = 82.5,
     val functionalCognitiveAge: Double = 68.0,
-    val biologicalAge: Int = 74,
+    val biologicalAge: Int = 68,
     val memoryRetentionIndex: Double = 84.0,
     val executiveFunctionIndex: Double = 79.5,
     val reactionLatencyScore: Double = 81.0,
@@ -29,7 +29,7 @@ data class PatientCognitiveTelemetry(
     val trajectoryStatus: String = "Stable / Preserved",
     val circadianRisk: String = "Low",
     val fatigueIndex: Double = 0.18,
-    val totalGamesPlayedToday: Int = 4,
+    val totalGamesPlayedToday: Int = 0,
     val recentGameSessions: List<GameSessionRecord> = emptyList(),
     val alertMessage: String? = null
 )

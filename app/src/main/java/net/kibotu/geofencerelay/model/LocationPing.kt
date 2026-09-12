@@ -20,5 +20,7 @@ data class LocationPing(
     val distanceFromCenter: Double = 0.0,
     val compositeCps: Double = 0.0,
     val functionalCognitiveAge: Double = 0.0,
-    val trajectoryStatus: String = ""
+    val trajectoryStatus: String = "",
+    val totalGamesPlayedToday: Int = 0,
+    val recentGameSessionsJson: String = ""
 )

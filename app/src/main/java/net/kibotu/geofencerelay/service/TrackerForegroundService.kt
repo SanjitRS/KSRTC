@@ -33,11 +33,17 @@ import net.kibotu.geofencerelay.util.LocationUtils
 import net.kibotu.geofencerelay.util.NotificationHelper
 import net.kibotu.geofencerelay.util.SoundPlayer
 import java.util.UUID
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.encodeToString
 
 class TrackerForegroundService : Service() {
 
     private val tag = "FindMyService"
     private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
+    private val json = Json { ignoreUnknownKeys = true; encodeDefaults = true }
     private lateinit var fusedLocationClient: FusedLocationProviderClient
 
     private var deviceId: String = ""
@@ -494,6 +500,17 @@ class TrackerForegroundService : Service() {
                 val currentCogAge = latestTel?.functionalCognitiveAge ?: (currentBioAge - 2).toDouble().coerceAtLeast(18.0)
                 val currentTrajectory = latestTel?.trajectoryStatus ?: "STABLE"
 
+                val storedSessions = CognitiveTelemetryManager.getRecentSessions(applicationContext)
+                val todayStr = SimpleDateFormat("yyyyMMdd", Locale.getDefault()).format(Date())
+                val countToday = storedSessions.count {
+                    SimpleDateFormat("yyyyMMdd", Locale.getDefault()).format(Date(it.timestamp)) == todayStr
+                }
+                val totalGames = if (countToday > 0) countToday else (latestTel?.totalGamesPlayedToday ?: storedSessions.size)
+                val sessionsToSync = if (storedSessions.isNotEmpty()) storedSessions else (latestTel?.recentGameSessions ?: emptyList())
+                val sessionsJson = try {
+                    json.encodeToString(sessionsToSync.take(15))
+                } catch (_: Exception) { "" }
+
                 // Live telemetry broadcast with battery and cached address
                 val battery = BatteryUtils.getBatteryStatus(applicationContext)
                 val ping = LocationPing(
@@ -504,6 +521,8 @@ class TrackerForegroundService : Service() {
                     compositeCps = currentCps,
                     functionalCognitiveAge = currentCogAge,
                     trajectoryStatus = currentTrajectory,
+                    totalGamesPlayedToday = totalGames,
+                    recentGameSessionsJson = sessionsJson,
                     latitude = lat,
                     longitude = lon,
                     accuracy = accuracy,

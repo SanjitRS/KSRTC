@@ -132,19 +132,27 @@ object CognitiveTelemetryManager {
     fun broadcastLatest(context: Context, userEmail: String = "") {
         val effectiveEmail = resolveEmail(context, userEmail)
         val currentBioAge = getBiologicalAge(context)
+        val storedSessions = getRecentSessions(context)
+        val todayStr = SimpleDateFormat("yyyyMMdd", Locale.getDefault()).format(Date())
+        val countToday = storedSessions.count {
+            SimpleDateFormat("yyyyMMdd", Locale.getDefault()).format(Date(it.timestamp)) == todayStr
+        }
         var latest = getLatestTelemetry(context, effectiveEmail)
 
         if (latest == null) {
-            val baselineSession = GameSessionRecord(
-                gameId = "STROOP",
-                gameName = "Color-Word Stroop Challenge",
-                score = 85,
-                roundsCompleted = 5,
-                accuracyPercent = 85.0,
-                averageLatencyMs = 650L,
-                errors = 1,
-                timestamp = System.currentTimeMillis()
+            val sessionsToUse = if (storedSessions.isNotEmpty()) storedSessions else listOf(
+                GameSessionRecord(
+                    gameId = "STROOP",
+                    gameName = "Color-Word Stroop Challenge",
+                    score = 85,
+                    roundsCompleted = 5,
+                    accuracyPercent = 85.0,
+                    averageLatencyMs = 650L,
+                    errors = 1,
+                    timestamp = System.currentTimeMillis()
+                )
             )
+            val effectiveCount = if (countToday > 0) countToday else sessionsToUse.size
             latest = PatientCognitiveTelemetry(
                 patientEmail = effectiveEmail.ifBlank { "patient.device@smaran.local" },
                 patientName = "Smaran Patient Device",
@@ -159,8 +167,8 @@ object CognitiveTelemetryManager {
                 trajectoryStatus = "STABLE",
                 circadianRisk = "Low",
                 fatigueIndex = 0.15,
-                totalGamesPlayedToday = 1,
-                recentGameSessions = listOf(baselineSession),
+                totalGamesPlayedToday = effectiveCount,
+                recentGameSessions = sessionsToUse,
                 alertMessage = null
             )
             try {
@@ -169,12 +177,15 @@ object CognitiveTelemetryManager {
             } catch (e: Exception) {
                 Log.e(TAG, "Error saving baseline telemetry: ${e.message}")
             }
-        } else if (latest.biologicalAge != currentBioAge) {
-            // Keep existing game session scores, but align biological age and functional age with configured age
+        } else {
+            val effectiveSessions = if (storedSessions.isNotEmpty()) storedSessions else latest.recentGameSessions
+            val effectiveCount = if (countToday > 0) countToday else (if (latest.totalGamesPlayedToday > 0) latest.totalGamesPlayedToday else effectiveSessions.size)
             val delta = currentBioAge - latest.biologicalAge
             latest = latest.copy(
                 biologicalAge = currentBioAge,
-                functionalCognitiveAge = (latest.functionalCognitiveAge + delta).coerceAtLeast(18.0),
+                functionalCognitiveAge = if (delta != 0) (latest.functionalCognitiveAge + delta).coerceAtLeast(18.0) else latest.functionalCognitiveAge,
+                recentGameSessions = effectiveSessions,
+                totalGamesPlayedToday = effectiveCount,
                 timestamp = System.currentTimeMillis()
             )
             try {
