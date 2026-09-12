@@ -211,6 +211,30 @@ class GuardianViewModel(application: Application) : AndroidViewModel(application
                         relay.subscribeForEmail(ping.patientEmail)
                         refreshPatientData()
                     }
+
+                    // Real-time live CPS telemetry sync embedded in 3s location ping
+                    if (ping.compositeCps > 0.0) {
+                        val current = _patientTelemetry.value
+                        val newAge = if (ping.biologicalAge > 0) ping.biologicalAge else (current?.biologicalAge ?: 68)
+                        val newCogAge = if (ping.functionalCognitiveAge > 0.0) ping.functionalCognitiveAge else (current?.functionalCognitiveAge ?: (newAge - 2).toDouble().coerceAtLeast(18.0))
+                        val newTrajectory = ping.trajectoryStatus.ifBlank { current?.trajectoryStatus ?: "STABLE" }
+
+                        if (current == null || current.compositeCps != ping.compositeCps || current.biologicalAge != newAge) {
+                            val newTel = (current ?: PatientCognitiveTelemetry()).copy(
+                                patientEmail = ping.patientEmail.ifBlank { current?.patientEmail ?: "" },
+                                compositeCps = ping.compositeCps,
+                                functionalCognitiveAge = newCogAge,
+                                biologicalAge = newAge,
+                                trajectoryStatus = newTrajectory,
+                                timestamp = ping.timestamp
+                            )
+                            _patientTelemetry.value = newTel
+                            try {
+                                prefs.edit().putString("cached_patient_telemetry", json.encodeToString(newTel)).commit()
+                            } catch (_: Exception) {}
+                        }
+                    }
+
                     if (ping.deviceName.isNotBlank() && _targetPatientEmail.value == "patient.device@smaran.local") {
                         val autoEmail = "patient.${ping.deviceName.replace(' ', '_').lowercase()}@smaran.local"
                         relay.subscribeForEmail(autoEmail)
@@ -236,13 +260,6 @@ class GuardianViewModel(application: Application) : AndroidViewModel(application
             launch {
                 relay.latestTelemetry.collect { telemetry ->
                     if (telemetry != null) {
-                        val current = _patientTelemetry.value
-                        if (current != null && current.timestamp > 0 && telemetry.timestamp > 0) {
-                            if (telemetry.timestamp < current.timestamp) {
-                                android.util.Log.d("GuardianViewModel", "Discarded stale telemetry: ${telemetry.timestamp} vs current ${current.timestamp}")
-                                return@collect
-                            }
-                        }
                         _patientTelemetry.value = telemetry
                         try {
                             prefs.edit().putString("cached_patient_telemetry", json.encodeToString(telemetry)).commit()

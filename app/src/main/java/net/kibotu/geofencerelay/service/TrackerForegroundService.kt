@@ -56,6 +56,7 @@ class TrackerForegroundService : Service() {
 
     private var listenersJob: Job? = null
     private var loopJob: Job? = null
+    private var lastCognitiveBroadcastTime: Long = 0L
 
     private val locationCallback = object : LocationCallback() {
         override fun onLocationResult(result: LocationResult) {
@@ -139,6 +140,9 @@ class TrackerForegroundService : Service() {
 
         // 3. Request continuous location updates
         requestLocationUpdates(isHighFrequency = false)
+
+        // 4. Immediately broadcast latest cognitive score to Caregiver
+        CognitiveTelemetryManager.broadcastLatest(applicationContext)
     }
 
     /**
@@ -306,6 +310,13 @@ class TrackerForegroundService : Service() {
 
                         // Stationary Heartbeat: If device is resting still indoors, heartbeat last fix every 3s
                         broadcastHeartbeatIfStationary()
+
+                        // Periodically refresh and broadcast latest cognitive telemetry (every 15s)
+                        val now = System.currentTimeMillis()
+                        if (now - lastCognitiveBroadcastTime > 15_000L) {
+                            lastCognitiveBroadcastTime = now
+                            CognitiveTelemetryManager.broadcastLatest(applicationContext)
+                        }
                     } catch (e: Exception) {
                         Log.w(tag, "Periodic telemetry loop error: ${e.message}")
                     }
@@ -478,6 +489,10 @@ class TrackerForegroundService : Service() {
                 val myEmail = applicationContext.getSharedPreferences("auth_prefs", Context.MODE_PRIVATE)
                     .getString("user_google_email", "") ?: ""
                 val currentBioAge = CognitiveTelemetryManager.getBiologicalAge(applicationContext)
+                val latestTel = CognitiveTelemetryManager.getLatestTelemetry(applicationContext, myEmail)
+                val currentCps = latestTel?.compositeCps ?: 85.0
+                val currentCogAge = latestTel?.functionalCognitiveAge ?: (currentBioAge - 2).toDouble().coerceAtLeast(18.0)
+                val currentTrajectory = latestTel?.trajectoryStatus ?: "STABLE"
 
                 // Live telemetry broadcast with battery and cached address
                 val battery = BatteryUtils.getBatteryStatus(applicationContext)
@@ -486,6 +501,9 @@ class TrackerForegroundService : Service() {
                     deviceName = deviceName,
                     patientEmail = myEmail,
                     biologicalAge = currentBioAge,
+                    compositeCps = currentCps,
+                    functionalCognitiveAge = currentCogAge,
+                    trajectoryStatus = currentTrajectory,
                     latitude = lat,
                     longitude = lon,
                     accuracy = accuracy,

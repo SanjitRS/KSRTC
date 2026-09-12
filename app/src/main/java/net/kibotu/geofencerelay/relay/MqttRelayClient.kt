@@ -72,17 +72,22 @@ class MqttRelayClient(
             .replace("+", "_")
     }
 
+    private val activeSubscriptions = java.util.concurrent.ConcurrentHashMap.newKeySet<String>()
     private val isConnecting = java.util.concurrent.atomic.AtomicBoolean(false)
 
     override suspend fun connect(userEmail: String): Boolean = withContext(Dispatchers.IO) {
         val effective = userEmail.trim().lowercase().ifBlank { "smaran_shared" }
         currentUserEmail = effective
+        activeSubscriptions.add(effective)
 
         // If already connected, ensure subscriptions are active
         val existing = client
         if (existing != null && existing.isConnected) {
             _isConnected.value = true
             subscribeForEmail(currentUserEmail)
+            for (subEmail in activeSubscriptions) {
+                if (subEmail != currentUserEmail) subscribeForEmail(subEmail)
+            }
             return@withContext true
         }
 
@@ -102,6 +107,9 @@ class MqttRelayClient(
                     Log.d(tag, "Connected to relay (reconnect=$reconnect, server=$serverURI)")
                     _isConnected.value = true
                     subscribeForEmail(currentUserEmail)
+                    for (subEmail in activeSubscriptions) {
+                        if (subEmail != currentUserEmail) subscribeForEmail(subEmail)
+                    }
                 }
 
                 override fun connectionLost(cause: Throwable?) {
@@ -141,6 +149,8 @@ class MqttRelayClient(
     }
 
     fun subscribeForEmail(email: String) {
+        if (email.isBlank()) return
+        activeSubscriptions.add(email.trim().lowercase())
         val c = client ?: return
         if (!c.isConnected) return
         val sanitized = sanitizeEmail(email)

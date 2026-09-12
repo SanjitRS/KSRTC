@@ -17,5 +17,8 @@ data class LocationPing(
     val address: String = "Locating...",
     val timestamp: Long = System.currentTimeMillis(),
     val isBreach: Boolean = false,
-    val distanceFromCenter: Double = 0.0
+    val distanceFromCenter: Double = 0.0,
+    val compositeCps: Double = 0.0,
+    val functionalCognitiveAge: Double = 0.0,
+    val trajectoryStatus: String = ""
 )

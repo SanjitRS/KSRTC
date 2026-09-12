@@ -114,6 +114,9 @@ object CognitiveTelemetryManager {
             try {
                 Log.d(TAG, "Broadcasting cognitive telemetry for $primaryEmail (CPS=${telemetry.compositeCps}, BioAge=$bioAge)...")
                 MqttRelayClient.shared.publishCognitiveTelemetry(primaryEmail, telemetry)
+                MqttRelayClient.shared.publishCognitiveTelemetry("guardian_device_at_smaran_local", telemetry)
+                MqttRelayClient.shared.publishCognitiveTelemetry("patient_device_at_smaran_local", telemetry)
+                MqttRelayClient.shared.publishCognitiveTelemetry("smaran_shared", telemetry)
                 val authorized = try { TrackerForegroundService.getAuthorizedEmails(context) } catch (_: Exception) { emptySet() }
                 for (auth in authorized) {
                     if (auth.isNotBlank() && auth != primaryEmail) {
@@ -180,12 +183,15 @@ object CognitiveTelemetryManager {
             } catch (_: Exception) {}
         }
 
-        val telemetryToSend = latest
+        val telemetryToSend = latest.copy(timestamp = System.currentTimeMillis())
         val primaryEmail = effectiveEmail.ifBlank { "smaran_shared" }
         scope.launch {
             try {
                 Log.d(TAG, "Broadcasting latest cognitive telemetry (CPS=${telemetryToSend.compositeCps}) to $primaryEmail...")
                 MqttRelayClient.shared.publishCognitiveTelemetry(primaryEmail, telemetryToSend)
+                MqttRelayClient.shared.publishCognitiveTelemetry("guardian_device_at_smaran_local", telemetryToSend)
+                MqttRelayClient.shared.publishCognitiveTelemetry("patient_device_at_smaran_local", telemetryToSend)
+                MqttRelayClient.shared.publishCognitiveTelemetry("smaran_shared", telemetryToSend)
                 val authorized = try { TrackerForegroundService.getAuthorizedEmails(context) } catch (_: Exception) { emptySet() }
                 for (auth in authorized) {
                     if (auth.isNotBlank() && auth != primaryEmail) {
