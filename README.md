@@ -1,8 +1,8 @@
 # Smaran: Assistive Cognitive & Patient Safety Platform
 
 ## 📱 Latest APK Downloads (Instant Sync & Multi-Broker Robust Connection)
-- **Caregiver App (Guardian)**: [https://files.catbox.moe/705wuq.apk](https://files.catbox.moe/705wuq.apk)
-- **Patient App (Tracker)**: [https://files.catbox.moe/r7e14e.apk](https://files.catbox.moe/r7e14e.apk)
+- **Caregiver App (Guardian)**: [https://files.catbox.moe/ps2fgv.apk](https://files.catbox.moe/ps2fgv.apk)
+- **Patient App (Tracker)**: [https://files.catbox.moe/1awq3q.apk](https://files.catbox.moe/1awq3q.apk)
 
 ### Recent Updates:
 - **Instant GPS & Telemetry Sync**: Real-time 1000ms location heartbeats and 2000ms cognitive telemetry updates.
