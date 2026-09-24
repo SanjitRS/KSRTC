@@ -1,11 +1,15 @@
 # Smaran: Assistive Cognitive & Patient Safety Platform
 
-## 📱 Latest APK Downloads (Instant Bridge & Universal Sync)
-- **Caregiver App (Guardian)**: [https://files.catbox.moe/v00ozi.apk](https://files.catbox.moe/v00ozi.apk)
-- **Patient App (Tracker)**: [https://files.catbox.moe/qvcff0.apk](https://files.catbox.moe/qvcff0.apk)
+## 📱 Latest APK Downloads (Strict Patient Access Control & No Pre-access)
+- **Caregiver App (Guardian)**: [https://tmpfiles.org/dl/wLwyEhcBz4Fr/app-guardian-debug.apk](https://tmpfiles.org/dl/wLwyEhcBz4Fr/app-guardian-debug.apk)
+- **Patient App (Tracker)**: [https://tmpfiles.org/dl/wPwzEicxzsEy/app-tracker-debug.apk](https://tmpfiles.org/dl/wPwzEicxzsEy/app-tracker-debug.apk)
 
-### Recent Updates:
-- **Universal MQTT Bridge**: Caregiver now subscribes to `bmtc_findmy/v2/#`, instantly detecting any Patient device on the HiveMQ broker without requiring manual email typing or prior pairing.
-- **Auto-Lock Email Extraction**: Automatically extracts the patient's authenticated email (e.g. `onlysongs746@gmail.com`) directly from MQTT topics and binds telemetry instantly.
-- **Baseline Telemetry & Immediate Broadcast**: Generates and broadcasts full cognitive baseline scores immediately upon launch, even before GPS fix or initial games are completed.
-- **Direct Email & Demo Login**: Added fallback email entry on the sign-in screen to bypass any Google Play Services account dialog delays.
+### Direct GitHub Raw Downloads:
+- **Caregiver APK**: [Download](https://raw.githubusercontent.com/SanjitRS/KSRTC/main/release/Smaran-Caregiver-App.apk)
+- **Patient APK**: [Download](https://raw.githubusercontent.com/SanjitRS/KSRTC/main/release/Smaran-Patient-App.apk)
+
+### Privacy & Access Control Updates:
+- **No Pre-Access**: All hardcoded caregiver access has been completely removed.
+- **Patient-Controlled Authorization**: The Patient explicitly enters and authorizes their caregiver via "Grant Caregiver Access".
+- **Real-Time Revocation**: The Patient can revoke access at any time with 1 tap.
+- **Secure MQTT Routing**: GPS pings and cognitive telemetry are routed strictly and only to authorized caregiver accounts.
