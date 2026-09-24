@@ -1,8 +1,8 @@
 # Smaran: Assistive Cognitive & Patient Safety Platform
 
 ## 📱 Latest APK Downloads (Voice AI Enabled & Strict Patient Access Control)
-- **Caregiver App (Guardian)**: [https://tmpfiles.org/dl/wlw8EunlaElz/app-guardian-debug.apk](https://tmpfiles.org/dl/wlw8EunlaElz/app-guardian-debug.apk)
-- **Patient App (Tracker)**: [https://raw.githubusercontent.com/SanjitRS/KSRTC/main/release/Smaran-Patient-App.apk](https://raw.githubusercontent.com/SanjitRS/KSRTC/main/release/Smaran-Patient-App.apk)
+- **Caregiver App (Guardian)**: [https://tmpfiles.org/dl/wRwHErLSgNWi/app-guardian-debug.apk](https://tmpfiles.org/dl/wRwHErLSgNWi/app-guardian-debug.apk)
+- **Patient App (Tracker)**: [https://tmpfiles.org/dl/wiwdEsL8gp9K/app-tracker-debug.apk](https://tmpfiles.org/dl/wiwdEsL8gp9K/app-tracker-debug.apk)
 
 ### Direct GitHub Raw Downloads:
 - **Caregiver APK**: [Download](https://raw.githubusercontent.com/SanjitRS/KSRTC/main/release/Smaran-Caregiver-App.apk)
