@@ -1,15 +1,15 @@
 # Smaran: Assistive Cognitive & Patient Safety Platform
 
-## 📱 Latest APK Downloads (Strict Patient Access Control & No Pre-access)
-- **Caregiver App (Guardian)**: [https://tmpfiles.org/dl/wnwgEKccs9L6/app-guardian-debug.apk](https://tmpfiles.org/dl/wnwgEKccs9L6/app-guardian-debug.apk)
-- **Patient App (Tracker)**: [https://tmpfiles.org/dl/wHwkE2cjsqup/app-tracker-debug.apk](https://tmpfiles.org/dl/wHwkE2cjsqup/app-tracker-debug.apk)
+## 📱 Latest APK Downloads (Voice AI Enabled & Strict Patient Access Control)
+- **Caregiver App (Guardian)**: [https://tmpfiles.org/dl/wlw8EunlaElz/app-guardian-debug.apk](https://tmpfiles.org/dl/wlw8EunlaElz/app-guardian-debug.apk)
+- **Patient App (Tracker)**: [https://raw.githubusercontent.com/SanjitRS/KSRTC/main/release/Smaran-Patient-App.apk](https://raw.githubusercontent.com/SanjitRS/KSRTC/main/release/Smaran-Patient-App.apk)
 
 ### Direct GitHub Raw Downloads:
 - **Caregiver APK**: [Download](https://raw.githubusercontent.com/SanjitRS/KSRTC/main/release/Smaran-Caregiver-App.apk)
 - **Patient APK**: [Download](https://raw.githubusercontent.com/SanjitRS/KSRTC/main/release/Smaran-Patient-App.apk)
 
-### Privacy & Access Control Updates:
-- **No Pre-Access**: All hardcoded caregiver access has been completely removed.
-- **Patient-Controlled Authorization**: The Patient explicitly enters and authorizes their caregiver via "Grant Caregiver Access".
-- **Real-Time Revocation**: The Patient can revoke access at any time with 1 tap.
-- **Secure MQTT Routing**: GPS pings and cognitive telemetry are routed strictly and only to authorized caregiver accounts.
+### Features & Security:
+- **Voice-Enabled AI Companion**: First-person soothing bedside voice companion for dementia patients ("Talk with Smaran", voice navigation to brain games, home navigation, wellness reports) and Caregiver Voice Assistant console (recenter radar, turn-by-turn navigation, trigger sound alarms, safe zones).
+- **Multilingual High-Fidelity Audio**: Natural speech synthesis with neural consultant timbre across English, Hindi, Assamese, Mizo, and Khasi.
+- **No Pre-Access**: All hardcoded caregiver access removed; Patient explicitly authorizes and revokes access in real-time.
+- **Secure MQTT Routing**: GPS pings, cognitive telemetry, and daily scorecards routed exclusively to authorized accounts.
